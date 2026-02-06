@@ -1,0 +1,2219 @@
+{
+  "/Users/balkumarrai/Documents/Projects/Nuxt/event-viewer/serverless.yml": {
+    "versionFramework": "4.31.2",
+    "servicePath": "/Users/balkumarrai/Documents/Projects/Nuxt/event-viewer/serverless.yml",
+    "serviceConfigFileName": "serverless.yml",
+    "service": {
+      "service": "novaweb-eventviewer-v3",
+      "plugins": [
+        "serverless-s3-sync"
+      ],
+      "custom": {
+        "staticBucketName": "nowaweb-eventviewer-v3-dev",
+        "domainName": "dev-event.novaweb.live",
+        "certificateArn": "arn:aws:acm:us-east-1:382084273050:certificate/3b1803c8-fdf0-4ba3-ba85-64d8adb463a6",
+        "s3Sync": [
+          {
+            "bucketName": "nowaweb-eventviewer-v3-dev",
+            "localDir": ".output/public"
+          }
+        ],
+        "hooks": {
+          "after:deploy:deploy": [
+            "serverless s3sync"
+          ]
+        }
+      },
+      "provider": {
+        "name": "aws",
+        "runtime": "nodejs20.x",
+        "region": "ap-southeast-1",
+        "architecture": "arm64",
+        "stage": "dev",
+        "layers": [
+          "arn:aws:lambda:ap-southeast-1:044395824272:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:2"
+        ],
+        "environment": {
+          "NODE_ENV": "production",
+          "NUXT_SESSION_PASSWORD": "<REDACTED>",
+          "ApiHostname": "https://dev-api.novaweb.live",
+          "AdminTable": "novaweb-dev-AdminTable",
+          "EmailFrom": "no-reply@novaweb.live",
+          "LogTable": "novaweb-dev-LogTable",
+          "qrHost": "https://qr.novaweb.live",
+          "QrCodeBucket": "nowaweb-dev-QRCodeBucket",
+          "RedisEndpoint": "nova-cache.rz42ir.ng.0001.apse1.cache.amazonaws.com:6379",
+          "RehearsalTable": "nowaweb-dev-RehearsalTable",
+          "RehearsalViewerTable": "nowaweb-dev-RehearsalViewerTable",
+          "ViewerTable": "novaweb-dev-ViewerTable",
+          "CDN_URL": {
+            "Fn::GetAtt": [
+              "ApplicationCloudFront",
+              "DomainName"
+            ]
+          }
+        },
+        "iam": {
+          "role": {
+            "statements": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "dynamodb:GetItem",
+                  "dynamodb:Scan",
+                  "dynamodb:Query",
+                  "dynamodb:PutItem",
+                  "dynamodb:UpdateItem"
+                ],
+                "Resource": [
+                  "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-ViewerTable",
+                  "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-AdminTable",
+                  "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-LogTable",
+                  "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-ViewerTable/index/*",
+                  "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-AdminTable/index/*",
+                  "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-LogTable/index/*"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "cloudfront:CreateInvalidation"
+                ],
+                "Resource": {
+                  "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}"
+                }
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "kms:Decrypt",
+                  "kms:GenerateDataKey"
+                ],
+                "Resource": "*"
+              }
+            ]
+          }
+        },
+        "versionFunctions": true,
+        "compiledCloudFormationTemplate": {
+          "AWSTemplateFormatVersion": "2010-09-09",
+          "Description": "The AWS CloudFormation template for this Serverless application",
+          "Resources": {
+            "WebAppLogGroup": {
+              "Type": "AWS::Logs::LogGroup",
+              "Properties": {
+                "LogGroupName": "/aws/lambda/NovawebEventviewerV3Function-dev"
+              }
+            },
+            "IamRoleLambdaExecution": {
+              "Type": "AWS::IAM::Role",
+              "Properties": {
+                "AssumeRolePolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Principal": {
+                        "Service": [
+                          "lambda.amazonaws.com"
+                        ]
+                      },
+                      "Action": [
+                        "sts:AssumeRole"
+                      ]
+                    }
+                  ]
+                },
+                "Policies": [
+                  {
+                    "PolicyName": {
+                      "Fn::Join": [
+                        "-",
+                        [
+                          "novaweb-eventviewer-v3",
+                          "dev",
+                          "lambda"
+                        ]
+                      ]
+                    },
+                    "PolicyDocument": {
+                      "Version": "2012-10-17",
+                      "Statement": [
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "logs:CreateLogStream",
+                            "logs:CreateLogGroup",
+                            "logs:TagResource"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/NovawebEventviewerV3Function-dev:*"
+                            }
+                          ]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "logs:PutLogEvents"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/NovawebEventviewerV3Function-dev:*:*"
+                            }
+                          ]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "dynamodb:GetItem",
+                            "dynamodb:Scan",
+                            "dynamodb:Query",
+                            "dynamodb:PutItem",
+                            "dynamodb:UpdateItem"
+                          ],
+                          "Resource": [
+                            "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-ViewerTable",
+                            "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-AdminTable",
+                            "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-LogTable",
+                            "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-ViewerTable/index/*",
+                            "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-AdminTable/index/*",
+                            "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-LogTable/index/*"
+                          ]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "cloudfront:CreateInvalidation"
+                          ],
+                          "Resource": {
+                            "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}"
+                          }
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "kms:Decrypt",
+                            "kms:GenerateDataKey"
+                          ],
+                          "Resource": "*"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "Path": "/",
+                "RoleName": {
+                  "Fn::Join": [
+                    "-",
+                    [
+                      "novaweb-eventviewer-v3",
+                      "dev",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "lambdaRole"
+                    ]
+                  ]
+                }
+              }
+            },
+            "WebAppLambdaFunction": {
+              "Type": "AWS::Lambda::Function",
+              "Properties": {
+                "Code": {
+                  "S3Bucket": "serverless-framework-deployments-ap-southeast-1-83edfb39-067f",
+                  "S3Key": "serverless/novaweb-eventviewer-v3/dev/1770367239785-2026-02-06T08:40:39.785Z/novaweb-eventviewer-v3.zip"
+                },
+                "Handler": ".output/server/index.handler",
+                "Runtime": "nodejs20.x",
+                "FunctionName": "NovawebEventviewerV3Function-dev",
+                "MemorySize": 1024,
+                "Timeout": 10,
+                "Architectures": [
+                  "arm64"
+                ],
+                "Environment": {
+                  "Variables": {
+                    "NODE_ENV": "production",
+                    "NUXT_SESSION_PASSWORD": "<REDACTED>",
+                    "ApiHostname": "https://dev-api.novaweb.live",
+                    "AdminTable": "novaweb-dev-AdminTable",
+                    "EmailFrom": "no-reply@novaweb.live",
+                    "LogTable": "novaweb-dev-LogTable",
+                    "qrHost": "https://qr.novaweb.live",
+                    "QrCodeBucket": "nowaweb-dev-QRCodeBucket",
+                    "RedisEndpoint": "nova-cache.rz42ir.ng.0001.apse1.cache.amazonaws.com:6379",
+                    "RehearsalTable": "nowaweb-dev-RehearsalTable",
+                    "RehearsalViewerTable": "nowaweb-dev-RehearsalViewerTable",
+                    "ViewerTable": "novaweb-dev-ViewerTable",
+                    "CDN_URL": {
+                      "Fn::GetAtt": [
+                        "ApplicationCloudFront",
+                        "DomainName"
+                      ]
+                    }
+                  }
+                },
+                "Role": {
+                  "Fn::GetAtt": [
+                    "IamRoleLambdaExecution",
+                    "Arn"
+                  ]
+                },
+                "Layers": [
+                  "arn:aws:lambda:ap-southeast-1:044395824272:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:2"
+                ]
+              },
+              "DependsOn": [
+                "WebAppLogGroup"
+              ]
+            },
+            "WebAppLambdaVersion5JD5TDlCewHMji3vO2w7QKA8jC1zwvgZBg7SqH4FV6s": {
+              "Type": "AWS::Lambda::Version",
+              "DeletionPolicy": "Retain",
+              "Properties": {
+                "FunctionName": {
+                  "Ref": "WebAppLambdaFunction"
+                },
+                "CodeSha256": "Bb0p8jnPQQOXk2DBFJZu5adNP07ZQ5MN40NdLCCWIJY="
+              }
+            },
+            "HttpApi": {
+              "Type": "AWS::ApiGatewayV2::Api",
+              "Properties": {
+                "Name": "dev-novaweb-eventviewer-v3",
+                "ProtocolType": "HTTP"
+              }
+            },
+            "HttpApiStage": {
+              "Type": "AWS::ApiGatewayV2::Stage",
+              "Properties": {
+                "ApiId": {
+                  "Ref": "HttpApi"
+                },
+                "StageName": "$default",
+                "AutoDeploy": true,
+                "DefaultRouteSettings": {
+                  "DetailedMetricsEnabled": false
+                }
+              }
+            },
+            "WebAppLambdaPermissionHttpApi": {
+              "Type": "AWS::Lambda::Permission",
+              "Properties": {
+                "FunctionName": {
+                  "Fn::GetAtt": [
+                    "WebAppLambdaFunction",
+                    "Arn"
+                  ]
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "apigateway.amazonaws.com",
+                "SourceArn": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":execute-api:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":",
+                      {
+                        "Ref": "HttpApi"
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              }
+            },
+            "HttpApiIntegrationWebApp": {
+              "Type": "AWS::ApiGatewayV2::Integration",
+              "Properties": {
+                "ApiId": {
+                  "Ref": "HttpApi"
+                },
+                "IntegrationType": "AWS_PROXY",
+                "IntegrationUri": {
+                  "Fn::GetAtt": [
+                    "WebAppLambdaFunction",
+                    "Arn"
+                  ]
+                },
+                "PayloadFormatVersion": "2.0",
+                "TimeoutInMillis": 30000
+              }
+            },
+            "HttpApiRouteAnyProxyVar": {
+              "Type": "AWS::ApiGatewayV2::Route",
+              "Properties": {
+                "ApiId": {
+                  "Ref": "HttpApi"
+                },
+                "RouteKey": "ANY /{proxy+}",
+                "Target": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      "integrations",
+                      {
+                        "Ref": "HttpApiIntegrationWebApp"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "DependsOn": "HttpApiIntegrationWebApp"
+            },
+            "StaticFilesBucket": {
+              "Type": "AWS::S3::Bucket",
+              "Properties": {
+                "BucketName": "nowaweb-eventviewer-v3-dev"
+              }
+            },
+            "CloudFrontOAC": {
+              "Type": "AWS::CloudFront::OriginAccessControl",
+              "Properties": {
+                "OriginAccessControlConfig": {
+                  "Name": {
+                    "Fn::Sub": "OAC for nowaweb-eventviewer-v3-dev"
+                  },
+                  "OriginAccessControlOriginType": "s3",
+                  "SigningBehavior": "always",
+                  "SigningProtocol": "sigv4"
+                }
+              }
+            },
+            "ApplicationCloudFront": {
+              "Type": "AWS::CloudFront::Distribution",
+              "Properties": {
+                "DistributionConfig": {
+                  "Aliases": [
+                    "dev-event.novaweb.live"
+                  ],
+                  "ViewerCertificate": {
+                    "AcmCertificateArn": "arn:aws:acm:us-east-1:382084273050:certificate/3b1803c8-fdf0-4ba3-ba85-64d8adb463a6",
+                    "SslSupportMethod": "sni-only",
+                    "MinimumProtocolVersion": "TLSv1.2_2021"
+                  },
+                  "Enabled": true,
+                  "Origins": [
+                    {
+                      "Id": "StaticFilesOrigin",
+                      "DomainName": {
+                        "Fn::GetAtt": [
+                          "StaticFilesBucket",
+                          "RegionalDomainName"
+                        ]
+                      },
+                      "OriginAccessControlId": {
+                        "Fn::GetAtt": [
+                          "CloudFrontOAC",
+                          "Id"
+                        ]
+                      },
+                      "S3OriginConfig": {}
+                    },
+                    {
+                      "Id": "NuxtAppOrigin",
+                      "DomainName": {
+                        "Fn::Sub": "${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+                      },
+                      "CustomOriginConfig": {
+                        "OriginProtocolPolicy": "https-only"
+                      }
+                    }
+                  ],
+                  "CacheBehaviors": [
+                    {
+                      "PathPattern": "_nuxt/*",
+                      "TargetOriginId": "StaticFilesOrigin",
+                      "ViewerProtocolPolicy": "redirect-to-https",
+                      "AllowedMethods": [
+                        "GET",
+                        "HEAD"
+                      ],
+                      "CachedMethods": [
+                        "GET",
+                        "HEAD"
+                      ],
+                      "ForwardedValues": {
+                        "QueryString": false,
+                        "Cookies": {
+                          "Forward": "none"
+                        }
+                      },
+                      "DefaultTTL": 31536000
+                    },
+                    {
+                      "PathPattern": "_ipx/*",
+                      "TargetOriginId": "NuxtAppOrigin",
+                      "ViewerProtocolPolicy": "redirect-to-https",
+                      "AllowedMethods": [
+                        "GET",
+                        "HEAD",
+                        "OPTIONS"
+                      ],
+                      "CachedMethods": [
+                        "GET",
+                        "HEAD",
+                        "OPTIONS"
+                      ],
+                      "ForwardedValues": {
+                        "QueryString": true,
+                        "Cookies": {
+                          "Forward": "none"
+                        }
+                      }
+                    },
+                    {
+                      "PathPattern": "vendor/*",
+                      "TargetOriginId": "StaticFilesOrigin",
+                      "ViewerProtocolPolicy": "redirect-to-https",
+                      "AllowedMethods": [
+                        "GET",
+                        "HEAD",
+                        "OPTIONS"
+                      ],
+                      "CachedMethods": [
+                        "GET",
+                        "HEAD",
+                        "OPTIONS"
+                      ],
+                      "ForwardedValues": {
+                        "QueryString": false,
+                        "Cookies": {
+                          "Forward": "none"
+                        }
+                      }
+                    },
+                    {
+                      "PathPattern": "favicon.ico",
+                      "TargetOriginId": "StaticFilesOrigin",
+                      "ViewerProtocolPolicy": "redirect-to-https",
+                      "AllowedMethods": [
+                        "GET",
+                        "HEAD"
+                      ],
+                      "CachedMethods": [
+                        "GET",
+                        "HEAD"
+                      ],
+                      "ForwardedValues": {
+                        "QueryString": false,
+                        "Cookies": {
+                          "Forward": "none"
+                        }
+                      }
+                    },
+                    {
+                      "PathPattern": "robots.txt",
+                      "TargetOriginId": "StaticFilesOrigin",
+                      "ViewerProtocolPolicy": "redirect-to-https",
+                      "AllowedMethods": [
+                        "GET",
+                        "HEAD",
+                        "OPTIONS"
+                      ],
+                      "CachedMethods": [
+                        "GET",
+                        "HEAD",
+                        "OPTIONS"
+                      ],
+                      "ForwardedValues": {
+                        "QueryString": false,
+                        "Cookies": {
+                          "Forward": "none"
+                        }
+                      }
+                    }
+                  ],
+                  "DefaultCacheBehavior": {
+                    "TargetOriginId": "NuxtAppOrigin",
+                    "ViewerProtocolPolicy": "redirect-to-https",
+                    "AllowedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS",
+                      "PUT",
+                      "POST",
+                      "PATCH",
+                      "DELETE"
+                    ],
+                    "CachedMethods": [
+                      "GET",
+                      "HEAD"
+                    ],
+                    "ForwardedValues": {
+                      "QueryString": true,
+                      "Headers": [
+                        "Authorization",
+                        "Content-Type",
+                        "Content-Length"
+                      ],
+                      "Cookies": {
+                        "Forward": "all"
+                      }
+                    },
+                    "MinTTL": 0,
+                    "DefaultTTL": 0,
+                    "MaxTTL": 0
+                  }
+                }
+              }
+            },
+            "StaticFilesBucketPolicy": {
+              "Type": "AWS::S3::BucketPolicy",
+              "Properties": {
+                "Bucket": {
+                  "Ref": "StaticFilesBucket"
+                },
+                "PolicyDocument": {
+                  "Statement": [
+                    {
+                      "Sid": "AllowCloudFrontAccess",
+                      "Effect": "Allow",
+                      "Principal": {
+                        "Service": "cloudfront.amazonaws.com"
+                      },
+                      "Action": [
+                        "s3:GetObject"
+                      ],
+                      "Resource": {
+                        "Fn::Join": [
+                          "",
+                          [
+                            {
+                              "Fn::GetAtt": [
+                                "StaticFilesBucket",
+                                "Arn"
+                              ]
+                            },
+                            "/*"
+                          ]
+                        ]
+                      },
+                      "Condition": {
+                        "StringEquals": {
+                          "AWS:SourceArn": {
+                            "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "Outputs": {
+            "ServerlessDeploymentBucketName": {
+              "Value": "serverless-framework-deployments-ap-southeast-1-83edfb39-067f",
+              "Export": {
+                "Name": "sls-novaweb-eventviewer-v3-dev-ServerlessDeploymentBucketName"
+              }
+            },
+            "WebAppLambdaFunctionQualifiedArn": {
+              "Description": "Current Lambda function version",
+              "Value": {
+                "Ref": "WebAppLambdaVersion5JD5TDlCewHMji3vO2w7QKA8jC1zwvgZBg7SqH4FV6s"
+              },
+              "Export": {
+                "Name": "sls-novaweb-eventviewer-v3-dev-WebAppLambdaFunctionQualifiedArn"
+              }
+            },
+            "HttpApiId": {
+              "Description": "Id of the HTTP API",
+              "Value": {
+                "Ref": "HttpApi"
+              },
+              "Export": {
+                "Name": "sls-novaweb-eventviewer-v3-dev-HttpApiId"
+              }
+            },
+            "HttpApiUrl": {
+              "Description": "URL of the HTTP API",
+              "Value": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "https://",
+                    {
+                      "Ref": "HttpApi"
+                    },
+                    ".execute-api.",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ".",
+                    {
+                      "Ref": "AWS::URLSuffix"
+                    }
+                  ]
+                ]
+              },
+              "Export": {
+                "Name": "sls-novaweb-eventviewer-v3-dev-HttpApiUrl"
+              }
+            }
+          }
+        },
+        "vpc": {}
+      },
+      "functions": {
+        "WebApp": {
+          "name": "NovawebEventviewerV3Function-dev",
+          "timeout": 10,
+          "memorySize": 1024,
+          "handler": ".output/server/index.handler",
+          "events": [
+            {
+              "httpApi": {
+                "path": "/{proxy+}",
+                "method": "*"
+              },
+              "resolvedMethod": "ANY",
+              "resolvedPath": "/{proxy+}"
+            }
+          ],
+          "package": {},
+          "memory": 1024,
+          "runtime": "nodejs20.x",
+          "vpc": {},
+          "versionLogicalId": "WebAppLambdaVersion5JD5TDlCewHMji3vO2w7QKA8jC1zwvgZBg7SqH4FV6s"
+        }
+      },
+      "package": {
+        "patterns": [
+          "!./**",
+          "./.output/server/**",
+          "./.output/public/_nuxt/**"
+        ],
+        "artifactsS3KeyDirname": "serverless/novaweb-eventviewer-v3/dev/code-artifacts",
+        "deploymentBucket": "serverless-framework-deployments-ap-southeast-1-83edfb39-067f",
+        "artifact": "/Users/balkumarrai/Documents/Projects/Nuxt/event-viewer/.serverless/novaweb-eventviewer-v3.zip",
+        "artifactDirectoryName": "serverless/novaweb-eventviewer-v3/dev/1770367239785-2026-02-06T08:40:39.785Z"
+      },
+      "resources": {
+        "Resources": {
+          "StaticFilesBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+              "BucketName": "nowaweb-eventviewer-v3-dev"
+            }
+          },
+          "CloudFrontOAC": {
+            "Type": "AWS::CloudFront::OriginAccessControl",
+            "Properties": {
+              "OriginAccessControlConfig": {
+                "Name": {
+                  "Fn::Sub": "OAC for nowaweb-eventviewer-v3-dev"
+                },
+                "OriginAccessControlOriginType": "s3",
+                "SigningBehavior": "always",
+                "SigningProtocol": "sigv4"
+              }
+            }
+          },
+          "ApplicationCloudFront": {
+            "Type": "AWS::CloudFront::Distribution",
+            "Properties": {
+              "DistributionConfig": {
+                "Aliases": [
+                  "dev-event.novaweb.live"
+                ],
+                "ViewerCertificate": {
+                  "AcmCertificateArn": "arn:aws:acm:us-east-1:382084273050:certificate/3b1803c8-fdf0-4ba3-ba85-64d8adb463a6",
+                  "SslSupportMethod": "sni-only",
+                  "MinimumProtocolVersion": "TLSv1.2_2021"
+                },
+                "Enabled": true,
+                "Origins": [
+                  {
+                    "Id": "StaticFilesOrigin",
+                    "DomainName": {
+                      "Fn::GetAtt": [
+                        "StaticFilesBucket",
+                        "RegionalDomainName"
+                      ]
+                    },
+                    "OriginAccessControlId": {
+                      "Fn::GetAtt": [
+                        "CloudFrontOAC",
+                        "Id"
+                      ]
+                    },
+                    "S3OriginConfig": {}
+                  },
+                  {
+                    "Id": "NuxtAppOrigin",
+                    "DomainName": {
+                      "Fn::Sub": "${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+                    },
+                    "CustomOriginConfig": {
+                      "OriginProtocolPolicy": "https-only"
+                    }
+                  }
+                ],
+                "CacheBehaviors": [
+                  {
+                    "PathPattern": "_nuxt/*",
+                    "TargetOriginId": "StaticFilesOrigin",
+                    "ViewerProtocolPolicy": "redirect-to-https",
+                    "AllowedMethods": [
+                      "GET",
+                      "HEAD"
+                    ],
+                    "CachedMethods": [
+                      "GET",
+                      "HEAD"
+                    ],
+                    "ForwardedValues": {
+                      "QueryString": false,
+                      "Cookies": {
+                        "Forward": "none"
+                      }
+                    },
+                    "DefaultTTL": 31536000
+                  },
+                  {
+                    "PathPattern": "_ipx/*",
+                    "TargetOriginId": "NuxtAppOrigin",
+                    "ViewerProtocolPolicy": "redirect-to-https",
+                    "AllowedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "CachedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "ForwardedValues": {
+                      "QueryString": true,
+                      "Cookies": {
+                        "Forward": "none"
+                      }
+                    }
+                  },
+                  {
+                    "PathPattern": "vendor/*",
+                    "TargetOriginId": "StaticFilesOrigin",
+                    "ViewerProtocolPolicy": "redirect-to-https",
+                    "AllowedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "CachedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "ForwardedValues": {
+                      "QueryString": false,
+                      "Cookies": {
+                        "Forward": "none"
+                      }
+                    }
+                  },
+                  {
+                    "PathPattern": "favicon.ico",
+                    "TargetOriginId": "StaticFilesOrigin",
+                    "ViewerProtocolPolicy": "redirect-to-https",
+                    "AllowedMethods": [
+                      "GET",
+                      "HEAD"
+                    ],
+                    "CachedMethods": [
+                      "GET",
+                      "HEAD"
+                    ],
+                    "ForwardedValues": {
+                      "QueryString": false,
+                      "Cookies": {
+                        "Forward": "none"
+                      }
+                    }
+                  },
+                  {
+                    "PathPattern": "robots.txt",
+                    "TargetOriginId": "StaticFilesOrigin",
+                    "ViewerProtocolPolicy": "redirect-to-https",
+                    "AllowedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "CachedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "ForwardedValues": {
+                      "QueryString": false,
+                      "Cookies": {
+                        "Forward": "none"
+                      }
+                    }
+                  }
+                ],
+                "DefaultCacheBehavior": {
+                  "TargetOriginId": "NuxtAppOrigin",
+                  "ViewerProtocolPolicy": "redirect-to-https",
+                  "AllowedMethods": [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS",
+                    "PUT",
+                    "POST",
+                    "PATCH",
+                    "DELETE"
+                  ],
+                  "CachedMethods": [
+                    "GET",
+                    "HEAD"
+                  ],
+                  "ForwardedValues": {
+                    "QueryString": true,
+                    "Headers": [
+                      "Authorization",
+                      "Content-Type",
+                      "Content-Length"
+                    ],
+                    "Cookies": {
+                      "Forward": "all"
+                    }
+                  },
+                  "MinTTL": 0,
+                  "DefaultTTL": 0,
+                  "MaxTTL": 0
+                }
+              }
+            }
+          },
+          "StaticFilesBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+              "Bucket": {
+                "Ref": "StaticFilesBucket"
+              },
+              "PolicyDocument": {
+                "Statement": [
+                  {
+                    "Sid": "AllowCloudFrontAccess",
+                    "Effect": "Allow",
+                    "Principal": {
+                      "Service": "cloudfront.amazonaws.com"
+                    },
+                    "Action": [
+                      "s3:GetObject"
+                    ],
+                    "Resource": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          {
+                            "Fn::GetAtt": [
+                              "StaticFilesBucket",
+                              "Arn"
+                            ]
+                          },
+                          "/*"
+                        ]
+                      ]
+                    },
+                    "Condition": {
+                      "StringEquals": {
+                        "AWS:SourceArn": {
+                          "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "Outputs": {}
+      }
+    },
+    "provider": {
+      "name": "aws",
+      "runtime": "nodejs20.x",
+      "region": "ap-southeast-1",
+      "architecture": "arm64",
+      "stage": "dev",
+      "layers": [
+        "arn:aws:lambda:ap-southeast-1:044395824272:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:2"
+      ],
+      "environment": {
+        "NODE_ENV": "production",
+        "NUXT_SESSION_PASSWORD": "<REDACTED>",
+        "ApiHostname": "https://dev-api.novaweb.live",
+        "AdminTable": "novaweb-dev-AdminTable",
+        "EmailFrom": "no-reply@novaweb.live",
+        "LogTable": "novaweb-dev-LogTable",
+        "qrHost": "https://qr.novaweb.live",
+        "QrCodeBucket": "nowaweb-dev-QRCodeBucket",
+        "RedisEndpoint": "nova-cache.rz42ir.ng.0001.apse1.cache.amazonaws.com:6379",
+        "RehearsalTable": "nowaweb-dev-RehearsalTable",
+        "RehearsalViewerTable": "nowaweb-dev-RehearsalViewerTable",
+        "ViewerTable": "novaweb-dev-ViewerTable",
+        "CDN_URL": {
+          "Fn::GetAtt": [
+            "ApplicationCloudFront",
+            "DomainName"
+          ]
+        }
+      },
+      "iam": {
+        "role": {
+          "statements": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "dynamodb:GetItem",
+                "dynamodb:Scan",
+                "dynamodb:Query",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem"
+              ],
+              "Resource": [
+                "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-ViewerTable",
+                "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-AdminTable",
+                "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-LogTable",
+                "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-ViewerTable/index/*",
+                "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-AdminTable/index/*",
+                "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-LogTable/index/*"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "cloudfront:CreateInvalidation"
+              ],
+              "Resource": {
+                "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}"
+              }
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "kms:Decrypt",
+                "kms:GenerateDataKey"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "versionFunctions": true,
+      "compiledCloudFormationTemplate": {
+        "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "The AWS CloudFormation template for this Serverless application",
+        "Resources": {
+          "WebAppLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+              "LogGroupName": "/aws/lambda/NovawebEventviewerV3Function-dev"
+            }
+          },
+          "IamRoleLambdaExecution": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+              "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Principal": {
+                      "Service": [
+                        "lambda.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Policies": [
+                {
+                  "PolicyName": {
+                    "Fn::Join": [
+                      "-",
+                      [
+                        "novaweb-eventviewer-v3",
+                        "dev",
+                        "lambda"
+                      ]
+                    ]
+                  },
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:CreateLogStream",
+                          "logs:CreateLogGroup",
+                          "logs:TagResource"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/NovawebEventviewerV3Function-dev:*"
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:PutLogEvents"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/NovawebEventviewerV3Function-dev:*:*"
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "dynamodb:GetItem",
+                          "dynamodb:Scan",
+                          "dynamodb:Query",
+                          "dynamodb:PutItem",
+                          "dynamodb:UpdateItem"
+                        ],
+                        "Resource": [
+                          "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-ViewerTable",
+                          "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-AdminTable",
+                          "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-LogTable",
+                          "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-ViewerTable/index/*",
+                          "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-AdminTable/index/*",
+                          "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-LogTable/index/*"
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "cloudfront:CreateInvalidation"
+                        ],
+                        "Resource": {
+                          "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}"
+                        }
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "kms:Decrypt",
+                          "kms:GenerateDataKey"
+                        ],
+                        "Resource": "*"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "Path": "/",
+              "RoleName": {
+                "Fn::Join": [
+                  "-",
+                  [
+                    "novaweb-eventviewer-v3",
+                    "dev",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    "lambdaRole"
+                  ]
+                ]
+              }
+            }
+          },
+          "WebAppLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": "serverless-framework-deployments-ap-southeast-1-83edfb39-067f",
+                "S3Key": "serverless/novaweb-eventviewer-v3/dev/1770367239785-2026-02-06T08:40:39.785Z/novaweb-eventviewer-v3.zip"
+              },
+              "Handler": ".output/server/index.handler",
+              "Runtime": "nodejs20.x",
+              "FunctionName": "NovawebEventviewerV3Function-dev",
+              "MemorySize": 1024,
+              "Timeout": 10,
+              "Architectures": [
+                "arm64"
+              ],
+              "Environment": {
+                "Variables": {
+                  "NODE_ENV": "production",
+                  "NUXT_SESSION_PASSWORD": "<REDACTED>",
+                  "ApiHostname": "https://dev-api.novaweb.live",
+                  "AdminTable": "novaweb-dev-AdminTable",
+                  "EmailFrom": "no-reply@novaweb.live",
+                  "LogTable": "novaweb-dev-LogTable",
+                  "qrHost": "https://qr.novaweb.live",
+                  "QrCodeBucket": "nowaweb-dev-QRCodeBucket",
+                  "RedisEndpoint": "nova-cache.rz42ir.ng.0001.apse1.cache.amazonaws.com:6379",
+                  "RehearsalTable": "nowaweb-dev-RehearsalTable",
+                  "RehearsalViewerTable": "nowaweb-dev-RehearsalViewerTable",
+                  "ViewerTable": "novaweb-dev-ViewerTable",
+                  "CDN_URL": {
+                    "Fn::GetAtt": [
+                      "ApplicationCloudFront",
+                      "DomainName"
+                    ]
+                  }
+                }
+              },
+              "Role": {
+                "Fn::GetAtt": [
+                  "IamRoleLambdaExecution",
+                  "Arn"
+                ]
+              },
+              "Layers": [
+                "arn:aws:lambda:ap-southeast-1:044395824272:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:2"
+              ]
+            },
+            "DependsOn": [
+              "WebAppLogGroup"
+            ]
+          },
+          "WebAppLambdaVersion5JD5TDlCewHMji3vO2w7QKA8jC1zwvgZBg7SqH4FV6s": {
+            "Type": "AWS::Lambda::Version",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+              "FunctionName": {
+                "Ref": "WebAppLambdaFunction"
+              },
+              "CodeSha256": "Bb0p8jnPQQOXk2DBFJZu5adNP07ZQ5MN40NdLCCWIJY="
+            }
+          },
+          "HttpApi": {
+            "Type": "AWS::ApiGatewayV2::Api",
+            "Properties": {
+              "Name": "dev-novaweb-eventviewer-v3",
+              "ProtocolType": "HTTP"
+            }
+          },
+          "HttpApiStage": {
+            "Type": "AWS::ApiGatewayV2::Stage",
+            "Properties": {
+              "ApiId": {
+                "Ref": "HttpApi"
+              },
+              "StageName": "$default",
+              "AutoDeploy": true,
+              "DefaultRouteSettings": {
+                "DetailedMetricsEnabled": false
+              }
+            }
+          },
+          "WebAppLambdaPermissionHttpApi": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+              "FunctionName": {
+                "Fn::GetAtt": [
+                  "WebAppLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "Action": "lambda:InvokeFunction",
+              "Principal": "apigateway.amazonaws.com",
+              "SourceArn": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":execute-api:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":",
+                    {
+                      "Ref": "HttpApi"
+                    },
+                    "/*"
+                  ]
+                ]
+              }
+            }
+          },
+          "HttpApiIntegrationWebApp": {
+            "Type": "AWS::ApiGatewayV2::Integration",
+            "Properties": {
+              "ApiId": {
+                "Ref": "HttpApi"
+              },
+              "IntegrationType": "AWS_PROXY",
+              "IntegrationUri": {
+                "Fn::GetAtt": [
+                  "WebAppLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "PayloadFormatVersion": "2.0",
+              "TimeoutInMillis": 30000
+            }
+          },
+          "HttpApiRouteAnyProxyVar": {
+            "Type": "AWS::ApiGatewayV2::Route",
+            "Properties": {
+              "ApiId": {
+                "Ref": "HttpApi"
+              },
+              "RouteKey": "ANY /{proxy+}",
+              "Target": {
+                "Fn::Join": [
+                  "/",
+                  [
+                    "integrations",
+                    {
+                      "Ref": "HttpApiIntegrationWebApp"
+                    }
+                  ]
+                ]
+              }
+            },
+            "DependsOn": "HttpApiIntegrationWebApp"
+          },
+          "StaticFilesBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+              "BucketName": "nowaweb-eventviewer-v3-dev"
+            }
+          },
+          "CloudFrontOAC": {
+            "Type": "AWS::CloudFront::OriginAccessControl",
+            "Properties": {
+              "OriginAccessControlConfig": {
+                "Name": {
+                  "Fn::Sub": "OAC for nowaweb-eventviewer-v3-dev"
+                },
+                "OriginAccessControlOriginType": "s3",
+                "SigningBehavior": "always",
+                "SigningProtocol": "sigv4"
+              }
+            }
+          },
+          "ApplicationCloudFront": {
+            "Type": "AWS::CloudFront::Distribution",
+            "Properties": {
+              "DistributionConfig": {
+                "Aliases": [
+                  "dev-event.novaweb.live"
+                ],
+                "ViewerCertificate": {
+                  "AcmCertificateArn": "arn:aws:acm:us-east-1:382084273050:certificate/3b1803c8-fdf0-4ba3-ba85-64d8adb463a6",
+                  "SslSupportMethod": "sni-only",
+                  "MinimumProtocolVersion": "TLSv1.2_2021"
+                },
+                "Enabled": true,
+                "Origins": [
+                  {
+                    "Id": "StaticFilesOrigin",
+                    "DomainName": {
+                      "Fn::GetAtt": [
+                        "StaticFilesBucket",
+                        "RegionalDomainName"
+                      ]
+                    },
+                    "OriginAccessControlId": {
+                      "Fn::GetAtt": [
+                        "CloudFrontOAC",
+                        "Id"
+                      ]
+                    },
+                    "S3OriginConfig": {}
+                  },
+                  {
+                    "Id": "NuxtAppOrigin",
+                    "DomainName": {
+                      "Fn::Sub": "${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+                    },
+                    "CustomOriginConfig": {
+                      "OriginProtocolPolicy": "https-only"
+                    }
+                  }
+                ],
+                "CacheBehaviors": [
+                  {
+                    "PathPattern": "_nuxt/*",
+                    "TargetOriginId": "StaticFilesOrigin",
+                    "ViewerProtocolPolicy": "redirect-to-https",
+                    "AllowedMethods": [
+                      "GET",
+                      "HEAD"
+                    ],
+                    "CachedMethods": [
+                      "GET",
+                      "HEAD"
+                    ],
+                    "ForwardedValues": {
+                      "QueryString": false,
+                      "Cookies": {
+                        "Forward": "none"
+                      }
+                    },
+                    "DefaultTTL": 31536000
+                  },
+                  {
+                    "PathPattern": "_ipx/*",
+                    "TargetOriginId": "NuxtAppOrigin",
+                    "ViewerProtocolPolicy": "redirect-to-https",
+                    "AllowedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "CachedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "ForwardedValues": {
+                      "QueryString": true,
+                      "Cookies": {
+                        "Forward": "none"
+                      }
+                    }
+                  },
+                  {
+                    "PathPattern": "vendor/*",
+                    "TargetOriginId": "StaticFilesOrigin",
+                    "ViewerProtocolPolicy": "redirect-to-https",
+                    "AllowedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "CachedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "ForwardedValues": {
+                      "QueryString": false,
+                      "Cookies": {
+                        "Forward": "none"
+                      }
+                    }
+                  },
+                  {
+                    "PathPattern": "favicon.ico",
+                    "TargetOriginId": "StaticFilesOrigin",
+                    "ViewerProtocolPolicy": "redirect-to-https",
+                    "AllowedMethods": [
+                      "GET",
+                      "HEAD"
+                    ],
+                    "CachedMethods": [
+                      "GET",
+                      "HEAD"
+                    ],
+                    "ForwardedValues": {
+                      "QueryString": false,
+                      "Cookies": {
+                        "Forward": "none"
+                      }
+                    }
+                  },
+                  {
+                    "PathPattern": "robots.txt",
+                    "TargetOriginId": "StaticFilesOrigin",
+                    "ViewerProtocolPolicy": "redirect-to-https",
+                    "AllowedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "CachedMethods": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ],
+                    "ForwardedValues": {
+                      "QueryString": false,
+                      "Cookies": {
+                        "Forward": "none"
+                      }
+                    }
+                  }
+                ],
+                "DefaultCacheBehavior": {
+                  "TargetOriginId": "NuxtAppOrigin",
+                  "ViewerProtocolPolicy": "redirect-to-https",
+                  "AllowedMethods": [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS",
+                    "PUT",
+                    "POST",
+                    "PATCH",
+                    "DELETE"
+                  ],
+                  "CachedMethods": [
+                    "GET",
+                    "HEAD"
+                  ],
+                  "ForwardedValues": {
+                    "QueryString": true,
+                    "Headers": [
+                      "Authorization",
+                      "Content-Type",
+                      "Content-Length"
+                    ],
+                    "Cookies": {
+                      "Forward": "all"
+                    }
+                  },
+                  "MinTTL": 0,
+                  "DefaultTTL": 0,
+                  "MaxTTL": 0
+                }
+              }
+            }
+          },
+          "StaticFilesBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+              "Bucket": {
+                "Ref": "StaticFilesBucket"
+              },
+              "PolicyDocument": {
+                "Statement": [
+                  {
+                    "Sid": "AllowCloudFrontAccess",
+                    "Effect": "Allow",
+                    "Principal": {
+                      "Service": "cloudfront.amazonaws.com"
+                    },
+                    "Action": [
+                      "s3:GetObject"
+                    ],
+                    "Resource": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          {
+                            "Fn::GetAtt": [
+                              "StaticFilesBucket",
+                              "Arn"
+                            ]
+                          },
+                          "/*"
+                        ]
+                      ]
+                    },
+                    "Condition": {
+                      "StringEquals": {
+                        "AWS:SourceArn": {
+                          "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "Outputs": {
+          "ServerlessDeploymentBucketName": {
+            "Value": "serverless-framework-deployments-ap-southeast-1-83edfb39-067f",
+            "Export": {
+              "Name": "sls-novaweb-eventviewer-v3-dev-ServerlessDeploymentBucketName"
+            }
+          },
+          "WebAppLambdaFunctionQualifiedArn": {
+            "Description": "Current Lambda function version",
+            "Value": {
+              "Ref": "WebAppLambdaVersion5JD5TDlCewHMji3vO2w7QKA8jC1zwvgZBg7SqH4FV6s"
+            },
+            "Export": {
+              "Name": "sls-novaweb-eventviewer-v3-dev-WebAppLambdaFunctionQualifiedArn"
+            }
+          },
+          "HttpApiId": {
+            "Description": "Id of the HTTP API",
+            "Value": {
+              "Ref": "HttpApi"
+            },
+            "Export": {
+              "Name": "sls-novaweb-eventviewer-v3-dev-HttpApiId"
+            }
+          },
+          "HttpApiUrl": {
+            "Description": "URL of the HTTP API",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "https://",
+                  {
+                    "Ref": "HttpApi"
+                  },
+                  ".execute-api.",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ".",
+                  {
+                    "Ref": "AWS::URLSuffix"
+                  }
+                ]
+              ]
+            },
+            "Export": {
+              "Name": "sls-novaweb-eventviewer-v3-dev-HttpApiUrl"
+            }
+          }
+        }
+      },
+      "vpc": {}
+    },
+    "dashboard": {
+      "isEnabledForService": false,
+      "requiredAuthentication": false,
+      "orgFeaturesInUse": null,
+      "orgObservabilityIntegrations": null,
+      "serviceAppId": null,
+      "serviceProvider": null,
+      "instanceParameters": null
+    },
+    "serviceRawFile": "service: novaweb-eventviewer-v3\n\nplugins:\n  - serverless-s3-sync\n\ncustom:\n  staticBucketName: ${env:STATIC_FILES_BUCKET_NAME}-${self:provider.stage}\n  domainName: ${env:DOMAIN_NAME, 'dev-event.novaweb.live'}\n  certificateArn: ${env:CERTIFICATE_ARN}\n  s3Sync:\n    - bucketName: ${env:STATIC_FILES_BUCKET_NAME}-${self:provider.stage}\n      localDir: .output/public\n  hooks:\n    \"after:deploy:deploy\":\n      - serverless s3sync\n\nprovider:\n  name: aws\n  runtime: nodejs20.x\n  region: ap-southeast-1\n  architecture: arm64\n  stage: ${opt:stage, 'dev'}\n  layers:\n    - arn:aws:lambda:ap-southeast-1:044395824272:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:2\n  environment:\n    NODE_ENV: ${env:NODE_ENV}\n    NUXT_SESSION_PASSWORD: ${env:NUXT_SESSION_PASSWORD}\n    ApiHostname: ${env:ApiHostname}\n    AdminTable: ${env:AdminTable}\n    EmailFrom: ${env:EmailFrom}\n    LogTable: ${env:LogTable}\n    qrHost: ${env:qrHost}\n    QrCodeBucket: ${env:QrCodeBucket}\n    RedisEndpoint: ${env:RedisEndpoint}\n    RehearsalTable: ${env:REHEARSAL_TABLE}\n    RehearsalViewerTable: ${env:RehearsalViewerTable}\n    ViewerTable: ${env:ViewerTable}\n\n    CDN_URL:\n      \"Fn::GetAtt\": [ApplicationCloudFront, DomainName]\n  iam:\n    role:\n      statements:\n        - Effect: \"Allow\"\n          Action:\n            - dynamodb:GetItem\n            - dynamodb:Scan\n            - dynamodb:Query\n            - dynamodb:PutItem\n            - dynamodb:UpdateItem\n          Resource:\n            - \"arn:aws:dynamodb:${aws:region}:*:table/${env:ViewerTable}\"\n            - \"arn:aws:dynamodb:${aws:region}:*:table/${env:AdminTable}\"\n            - \"arn:aws:dynamodb:${aws:region}:*:table/${env:LogTable}\"\n            - \"arn:aws:dynamodb:${aws:region}:*:table/${env:ViewerTable}/index/*\"\n            - \"arn:aws:dynamodb:${aws:region}:*:table/${env:AdminTable}/index/*\"\n            - \"arn:aws:dynamodb:${aws:region}:*:table/${env:LogTable}/index/*\"\n        - Effect: \"Allow\"\n          Action:\n            - cloudfront:CreateInvalidation\n          Resource: !Sub \"arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}\"\n        - Effect: \"Allow\"\n          Action:\n            - \"kms:Decrypt\"\n            - \"kms:GenerateDataKey\"\n          Resource: \"*\"\n\nfunctions:\n  WebApp:\n    name: NovawebEventviewerV3Function-${self:provider.stage}\n    timeout: 10\n    memorySize: 1024\n    handler: \".output/server/index.handler\"\n    events:\n      - httpApi:\n          path: \"/{proxy+}\"\n          method: \"*\"\n\npackage:\n  patterns:\n    - \"!./**\"\n    - \"./.output/server/**\"\n    - \"./.output/public/_nuxt/**\"\n\nresources:\n  Resources:\n    StaticFilesBucket:\n      Type: AWS::S3::Bucket\n      Properties:\n        BucketName: ${self:custom.staticBucketName}\n\n    CloudFrontOAC:\n      Type: AWS::CloudFront::OriginAccessControl\n      Properties:\n        OriginAccessControlConfig:\n          Name: !Sub \"OAC for ${self:custom.staticBucketName}\"\n          OriginAccessControlOriginType: s3\n          SigningBehavior: always\n          SigningProtocol: sigv4\n\n    ApplicationCloudFront:\n      Type: AWS::CloudFront::Distribution\n      Properties:\n        DistributionConfig:\n          # Add custom domain configuration\n          Aliases:\n            - ${self:custom.domainName}\n          # Add SSL certificate\n          ViewerCertificate:\n            AcmCertificateArn: ${self:custom.certificateArn}\n            SslSupportMethod: sni-only\n            MinimumProtocolVersion: TLSv1.2_2021\n          Enabled: true\n          Origins:\n            - Id: StaticFilesOrigin\n              DomainName:\n                \"Fn::GetAtt\": [StaticFilesBucket, RegionalDomainName]\n              OriginAccessControlId: !GetAtt CloudFrontOAC.Id\n              S3OriginConfig: {}\n            - Id: NuxtAppOrigin\n              DomainName: !Sub \"${HttpApi}.execute-api.${AWS::Region}.amazonaws.com\"\n              CustomOriginConfig:\n                OriginProtocolPolicy: \"https-only\"\n          CacheBehaviors:\n            - PathPattern: \"_nuxt/*\"\n              TargetOriginId: StaticFilesOrigin\n              ViewerProtocolPolicy: \"redirect-to-https\"\n              AllowedMethods: [\"GET\", \"HEAD\"]\n              CachedMethods: [\"GET\", \"HEAD\"]\n              ForwardedValues:\n                QueryString: false\n                Cookies:\n                  Forward: \"none\"\n              DefaultTTL: 31536000\n\n            - PathPattern: \"_ipx/*\"\n              TargetOriginId: NuxtAppOrigin\n              ViewerProtocolPolicy: \"redirect-to-https\"\n              AllowedMethods: [\"GET\", \"HEAD\", \"OPTIONS\"]\n              CachedMethods: [\"GET\", \"HEAD\", \"OPTIONS\"]\n              ForwardedValues:\n                QueryString: true\n                Cookies:\n                  Forward: \"none\"\n\n            - PathPattern: \"vendor/*\"\n              TargetOriginId: StaticFilesOrigin\n              ViewerProtocolPolicy: \"redirect-to-https\"\n              AllowedMethods: [\"GET\", \"HEAD\", \"OPTIONS\"]\n              CachedMethods: [\"GET\", \"HEAD\", \"OPTIONS\"]\n              ForwardedValues:\n                QueryString: false\n                Cookies:\n                  Forward: \"none\"\n\n            - PathPattern: \"favicon.ico\"\n              TargetOriginId: StaticFilesOrigin\n              ViewerProtocolPolicy: \"redirect-to-https\"\n              AllowedMethods: [\"GET\", \"HEAD\"]\n              CachedMethods: [\"GET\", \"HEAD\"]\n              ForwardedValues:\n                QueryString: false\n                Cookies:\n                  Forward: \"none\"\n            - PathPattern: \"robots.txt\"\n              TargetOriginId: StaticFilesOrigin\n              ViewerProtocolPolicy: \"redirect-to-https\"\n              AllowedMethods: [\"GET\", \"HEAD\", \"OPTIONS\"]\n              CachedMethods: [\"GET\", \"HEAD\", \"OPTIONS\"]\n              ForwardedValues:\n                QueryString: false\n                Cookies:\n                  Forward: \"none\"\n\n          DefaultCacheBehavior:\n            TargetOriginId: NuxtAppOrigin\n            ViewerProtocolPolicy: \"redirect-to-https\"\n            AllowedMethods:\n              [\"GET\", \"HEAD\", \"OPTIONS\", \"PUT\", \"POST\", \"PATCH\", \"DELETE\"]\n            CachedMethods: [\"GET\", \"HEAD\"]\n            ForwardedValues:\n              QueryString: true\n              Headers:\n                - Authorization\n                - Content-Type\n                - Content-Length\n              Cookies:\n                Forward: \"all\"\n            MinTTL: 0\n            DefaultTTL: 0\n            MaxTTL: 0\n\n    StaticFilesBucketPolicy:\n      Type: AWS::S3::BucketPolicy\n      Properties:\n        Bucket:\n          Ref: StaticFilesBucket\n        PolicyDocument:\n          Statement:\n            - Sid: AllowCloudFrontAccess\n              Effect: Allow\n              Principal:\n                Service: cloudfront.amazonaws.com\n              Action:\n                - s3:GetObject\n              Resource:\n                \"Fn::Join\":\n                  - \"\"\n                  - - \"Fn::GetAtt\": [StaticFilesBucket, Arn]\n                    - \"/*\"\n              Condition:\n                StringEquals:\n                  AWS:SourceArn: !Sub \"arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}\"\n",
+    "command": [
+      "deploy"
+    ],
+    "options": {},
+    "orgId": "W20X9R2WBKQZx6tNFn",
+    "orgName": "balrai",
+    "userId": "JV1jnwTYty9sYnBTRY",
+    "userName": "bal.rai",
+    "serviceProviderAwsAccountId": "382084273050",
+    "serviceProviderAwsCfStackName": "novaweb-eventviewer-v3-dev",
+    "serviceProviderAwsCfStackId": "arn:aws:cloudformation:ap-southeast-1:382084273050:stack/novaweb-eventviewer-v3-dev/3317a260-032b-11f1-928c-0adcf70f1843",
+    "serviceProviderAwsCfStackCreated": "2026-02-06T07:12:30.202Z",
+    "serviceProviderAwsCfStackUpdated": "2026-02-06T08:36:48.627Z",
+    "serviceProviderAwsCfStackStatus": "UPDATE_COMPLETE",
+    "serviceProviderAwsCfStackOutputs": [
+      {
+        "OutputKey": "WebAppLambdaFunctionQualifiedArn",
+        "OutputValue": "arn:aws:lambda:ap-southeast-1:382084273050:function:NovawebEventviewerV3Function-dev:3",
+        "Description": "Current Lambda function version",
+        "ExportName": "sls-novaweb-eventviewer-v3-dev-WebAppLambdaFunctionQualifiedArn"
+      },
+      {
+        "OutputKey": "HttpApiId",
+        "OutputValue": "3dy1pp7wp5",
+        "Description": "Id of the HTTP API",
+        "ExportName": "sls-novaweb-eventviewer-v3-dev-HttpApiId"
+      },
+      {
+        "OutputKey": "ServerlessDeploymentBucketName",
+        "OutputValue": "serverless-framework-deployments-ap-southeast-1-83edfb39-067f",
+        "ExportName": "sls-novaweb-eventviewer-v3-dev-ServerlessDeploymentBucketName"
+      },
+      {
+        "OutputKey": "HttpApiUrl",
+        "OutputValue": "https://3dy1pp7wp5.execute-api.ap-southeast-1.amazonaws.com",
+        "Description": "URL of the HTTP API",
+        "ExportName": "sls-novaweb-eventviewer-v3-dev-HttpApiUrl"
+      }
+    ],
+    "compiledCloudFormationTemplate": {
+      "AWSTemplateFormatVersion": "2010-09-09",
+      "Description": "The AWS CloudFormation template for this Serverless application",
+      "Resources": {
+        "WebAppLogGroup": {
+          "Type": "AWS::Logs::LogGroup",
+          "Properties": {
+            "LogGroupName": "/aws/lambda/NovawebEventviewerV3Function-dev"
+          }
+        },
+        "IamRoleLambdaExecution": {
+          "Type": "AWS::IAM::Role",
+          "Properties": {
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": [
+                      "lambda.amazonaws.com"
+                    ]
+                  },
+                  "Action": [
+                    "sts:AssumeRole"
+                  ]
+                }
+              ]
+            },
+            "Policies": [
+              {
+                "PolicyName": {
+                  "Fn::Join": [
+                    "-",
+                    [
+                      "novaweb-eventviewer-v3",
+                      "dev",
+                      "lambda"
+                    ]
+                  ]
+                },
+                "PolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "logs:CreateLogStream",
+                        "logs:CreateLogGroup",
+                        "logs:TagResource"
+                      ],
+                      "Resource": [
+                        {
+                          "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/NovawebEventviewerV3Function-dev:*"
+                        }
+                      ]
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "logs:PutLogEvents"
+                      ],
+                      "Resource": [
+                        {
+                          "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/NovawebEventviewerV3Function-dev:*:*"
+                        }
+                      ]
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "dynamodb:GetItem",
+                        "dynamodb:Scan",
+                        "dynamodb:Query",
+                        "dynamodb:PutItem",
+                        "dynamodb:UpdateItem"
+                      ],
+                      "Resource": [
+                        "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-ViewerTable",
+                        "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-AdminTable",
+                        "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-LogTable",
+                        "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-ViewerTable/index/*",
+                        "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-AdminTable/index/*",
+                        "arn:aws:dynamodb:ap-southeast-1:*:table/novaweb-dev-LogTable/index/*"
+                      ]
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "cloudfront:CreateInvalidation"
+                      ],
+                      "Resource": {
+                        "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}"
+                      }
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "kms:Decrypt",
+                        "kms:GenerateDataKey"
+                      ],
+                      "Resource": "*"
+                    }
+                  ]
+                }
+              }
+            ],
+            "Path": "/",
+            "RoleName": {
+              "Fn::Join": [
+                "-",
+                [
+                  "novaweb-eventviewer-v3",
+                  "dev",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  "lambdaRole"
+                ]
+              ]
+            }
+          }
+        },
+        "WebAppLambdaFunction": {
+          "Type": "AWS::Lambda::Function",
+          "Properties": {
+            "Code": {
+              "S3Bucket": "serverless-framework-deployments-ap-southeast-1-83edfb39-067f",
+              "S3Key": "serverless/novaweb-eventviewer-v3/dev/1770367239785-2026-02-06T08:40:39.785Z/novaweb-eventviewer-v3.zip"
+            },
+            "Handler": ".output/server/index.handler",
+            "Runtime": "nodejs20.x",
+            "FunctionName": "NovawebEventviewerV3Function-dev",
+            "MemorySize": 1024,
+            "Timeout": 10,
+            "Architectures": [
+              "arm64"
+            ],
+            "Environment": {
+              "Variables": {
+                "NODE_ENV": "production",
+                "NUXT_SESSION_PASSWORD": "<REDACTED>",
+                "ApiHostname": "https://dev-api.novaweb.live",
+                "AdminTable": "novaweb-dev-AdminTable",
+                "EmailFrom": "no-reply@novaweb.live",
+                "LogTable": "novaweb-dev-LogTable",
+                "qrHost": "https://qr.novaweb.live",
+                "QrCodeBucket": "nowaweb-dev-QRCodeBucket",
+                "RedisEndpoint": "nova-cache.rz42ir.ng.0001.apse1.cache.amazonaws.com:6379",
+                "RehearsalTable": "nowaweb-dev-RehearsalTable",
+                "RehearsalViewerTable": "nowaweb-dev-RehearsalViewerTable",
+                "ViewerTable": "novaweb-dev-ViewerTable",
+                "CDN_URL": {
+                  "Fn::GetAtt": [
+                    "ApplicationCloudFront",
+                    "DomainName"
+                  ]
+                }
+              }
+            },
+            "Role": {
+              "Fn::GetAtt": [
+                "IamRoleLambdaExecution",
+                "Arn"
+              ]
+            },
+            "Layers": [
+              "arn:aws:lambda:ap-southeast-1:044395824272:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:2"
+            ]
+          },
+          "DependsOn": [
+            "WebAppLogGroup"
+          ]
+        },
+        "WebAppLambdaVersion5JD5TDlCewHMji3vO2w7QKA8jC1zwvgZBg7SqH4FV6s": {
+          "Type": "AWS::Lambda::Version",
+          "DeletionPolicy": "Retain",
+          "Properties": {
+            "FunctionName": {
+              "Ref": "WebAppLambdaFunction"
+            },
+            "CodeSha256": "Bb0p8jnPQQOXk2DBFJZu5adNP07ZQ5MN40NdLCCWIJY="
+          }
+        },
+        "HttpApi": {
+          "Type": "AWS::ApiGatewayV2::Api",
+          "Properties": {
+            "Name": "dev-novaweb-eventviewer-v3",
+            "ProtocolType": "HTTP"
+          }
+        },
+        "HttpApiStage": {
+          "Type": "AWS::ApiGatewayV2::Stage",
+          "Properties": {
+            "ApiId": {
+              "Ref": "HttpApi"
+            },
+            "StageName": "$default",
+            "AutoDeploy": true,
+            "DefaultRouteSettings": {
+              "DetailedMetricsEnabled": false
+            }
+          }
+        },
+        "WebAppLambdaPermissionHttpApi": {
+          "Type": "AWS::Lambda::Permission",
+          "Properties": {
+            "FunctionName": {
+              "Fn::GetAtt": [
+                "WebAppLambdaFunction",
+                "Arn"
+              ]
+            },
+            "Action": "lambda:InvokeFunction",
+            "Principal": "apigateway.amazonaws.com",
+            "SourceArn": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition"
+                  },
+                  ":execute-api:",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ":",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  ":",
+                  {
+                    "Ref": "HttpApi"
+                  },
+                  "/*"
+                ]
+              ]
+            }
+          }
+        },
+        "HttpApiIntegrationWebApp": {
+          "Type": "AWS::ApiGatewayV2::Integration",
+          "Properties": {
+            "ApiId": {
+              "Ref": "HttpApi"
+            },
+            "IntegrationType": "AWS_PROXY",
+            "IntegrationUri": {
+              "Fn::GetAtt": [
+                "WebAppLambdaFunction",
+                "Arn"
+              ]
+            },
+            "PayloadFormatVersion": "2.0",
+            "TimeoutInMillis": 30000
+          }
+        },
+        "HttpApiRouteAnyProxyVar": {
+          "Type": "AWS::ApiGatewayV2::Route",
+          "Properties": {
+            "ApiId": {
+              "Ref": "HttpApi"
+            },
+            "RouteKey": "ANY /{proxy+}",
+            "Target": {
+              "Fn::Join": [
+                "/",
+                [
+                  "integrations",
+                  {
+                    "Ref": "HttpApiIntegrationWebApp"
+                  }
+                ]
+              ]
+            }
+          },
+          "DependsOn": "HttpApiIntegrationWebApp"
+        },
+        "StaticFilesBucket": {
+          "Type": "AWS::S3::Bucket",
+          "Properties": {
+            "BucketName": "nowaweb-eventviewer-v3-dev"
+          }
+        },
+        "CloudFrontOAC": {
+          "Type": "AWS::CloudFront::OriginAccessControl",
+          "Properties": {
+            "OriginAccessControlConfig": {
+              "Name": {
+                "Fn::Sub": "OAC for nowaweb-eventviewer-v3-dev"
+              },
+              "OriginAccessControlOriginType": "s3",
+              "SigningBehavior": "always",
+              "SigningProtocol": "sigv4"
+            }
+          }
+        },
+        "ApplicationCloudFront": {
+          "Type": "AWS::CloudFront::Distribution",
+          "Properties": {
+            "DistributionConfig": {
+              "Aliases": [
+                "dev-event.novaweb.live"
+              ],
+              "ViewerCertificate": {
+                "AcmCertificateArn": "arn:aws:acm:us-east-1:382084273050:certificate/3b1803c8-fdf0-4ba3-ba85-64d8adb463a6",
+                "SslSupportMethod": "sni-only",
+                "MinimumProtocolVersion": "TLSv1.2_2021"
+              },
+              "Enabled": true,
+              "Origins": [
+                {
+                  "Id": "StaticFilesOrigin",
+                  "DomainName": {
+                    "Fn::GetAtt": [
+                      "StaticFilesBucket",
+                      "RegionalDomainName"
+                    ]
+                  },
+                  "OriginAccessControlId": {
+                    "Fn::GetAtt": [
+                      "CloudFrontOAC",
+                      "Id"
+                    ]
+                  },
+                  "S3OriginConfig": {}
+                },
+                {
+                  "Id": "NuxtAppOrigin",
+                  "DomainName": {
+                    "Fn::Sub": "${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+                  },
+                  "CustomOriginConfig": {
+                    "OriginProtocolPolicy": "https-only"
+                  }
+                }
+              ],
+              "CacheBehaviors": [
+                {
+                  "PathPattern": "_nuxt/*",
+                  "TargetOriginId": "StaticFilesOrigin",
+                  "ViewerProtocolPolicy": "redirect-to-https",
+                  "AllowedMethods": [
+                    "GET",
+                    "HEAD"
+                  ],
+                  "CachedMethods": [
+                    "GET",
+                    "HEAD"
+                  ],
+                  "ForwardedValues": {
+                    "QueryString": false,
+                    "Cookies": {
+                      "Forward": "none"
+                    }
+                  },
+                  "DefaultTTL": 31536000
+                },
+                {
+                  "PathPattern": "_ipx/*",
+                  "TargetOriginId": "NuxtAppOrigin",
+                  "ViewerProtocolPolicy": "redirect-to-https",
+                  "AllowedMethods": [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS"
+                  ],
+                  "CachedMethods": [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS"
+                  ],
+                  "ForwardedValues": {
+                    "QueryString": true,
+                    "Cookies": {
+                      "Forward": "none"
+                    }
+                  }
+                },
+                {
+                  "PathPattern": "vendor/*",
+                  "TargetOriginId": "StaticFilesOrigin",
+                  "ViewerProtocolPolicy": "redirect-to-https",
+                  "AllowedMethods": [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS"
+                  ],
+                  "CachedMethods": [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS"
+                  ],
+                  "ForwardedValues": {
+                    "QueryString": false,
+                    "Cookies": {
+                      "Forward": "none"
+                    }
+                  }
+                },
+                {
+                  "PathPattern": "favicon.ico",
+                  "TargetOriginId": "StaticFilesOrigin",
+                  "ViewerProtocolPolicy": "redirect-to-https",
+                  "AllowedMethods": [
+                    "GET",
+                    "HEAD"
+                  ],
+                  "CachedMethods": [
+                    "GET",
+                    "HEAD"
+                  ],
+                  "ForwardedValues": {
+                    "QueryString": false,
+                    "Cookies": {
+                      "Forward": "none"
+                    }
+                  }
+                },
+                {
+                  "PathPattern": "robots.txt",
+                  "TargetOriginId": "StaticFilesOrigin",
+                  "ViewerProtocolPolicy": "redirect-to-https",
+                  "AllowedMethods": [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS"
+                  ],
+                  "CachedMethods": [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS"
+                  ],
+                  "ForwardedValues": {
+                    "QueryString": false,
+                    "Cookies": {
+                      "Forward": "none"
+                    }
+                  }
+                }
+              ],
+              "DefaultCacheBehavior": {
+                "TargetOriginId": "NuxtAppOrigin",
+                "ViewerProtocolPolicy": "redirect-to-https",
+                "AllowedMethods": [
+                  "GET",
+                  "HEAD",
+                  "OPTIONS",
+                  "PUT",
+                  "POST",
+                  "PATCH",
+                  "DELETE"
+                ],
+                "CachedMethods": [
+                  "GET",
+                  "HEAD"
+                ],
+                "ForwardedValues": {
+                  "QueryString": true,
+                  "Headers": [
+                    "Authorization",
+                    "Content-Type",
+                    "Content-Length"
+                  ],
+                  "Cookies": {
+                    "Forward": "all"
+                  }
+                },
+                "MinTTL": 0,
+                "DefaultTTL": 0,
+                "MaxTTL": 0
+              }
+            }
+          }
+        },
+        "StaticFilesBucketPolicy": {
+          "Type": "AWS::S3::BucketPolicy",
+          "Properties": {
+            "Bucket": {
+              "Ref": "StaticFilesBucket"
+            },
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Sid": "AllowCloudFrontAccess",
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "cloudfront.amazonaws.com"
+                  },
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Resource": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        {
+                          "Fn::GetAtt": [
+                            "StaticFilesBucket",
+                            "Arn"
+                          ]
+                        },
+                        "/*"
+                      ]
+                    ]
+                  },
+                  "Condition": {
+                    "StringEquals": {
+                      "AWS:SourceArn": {
+                        "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "Outputs": {
+        "ServerlessDeploymentBucketName": {
+          "Value": "serverless-framework-deployments-ap-southeast-1-83edfb39-067f",
+          "Export": {
+            "Name": "sls-novaweb-eventviewer-v3-dev-ServerlessDeploymentBucketName"
+          }
+        },
+        "WebAppLambdaFunctionQualifiedArn": {
+          "Description": "Current Lambda function version",
+          "Value": {
+            "Ref": "WebAppLambdaVersion5JD5TDlCewHMji3vO2w7QKA8jC1zwvgZBg7SqH4FV6s"
+          },
+          "Export": {
+            "Name": "sls-novaweb-eventviewer-v3-dev-WebAppLambdaFunctionQualifiedArn"
+          }
+        },
+        "HttpApiId": {
+          "Description": "Id of the HTTP API",
+          "Value": {
+            "Ref": "HttpApi"
+          },
+          "Export": {
+            "Name": "sls-novaweb-eventviewer-v3-dev-HttpApiId"
+          }
+        },
+        "HttpApiUrl": {
+          "Description": "URL of the HTTP API",
+          "Value": {
+            "Fn::Join": [
+              "",
+              [
+                "https://",
+                {
+                  "Ref": "HttpApi"
+                },
+                ".execute-api.",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ".",
+                {
+                  "Ref": "AWS::URLSuffix"
+                }
+              ]
+            ]
+          },
+          "Export": {
+            "Name": "sls-novaweb-eventviewer-v3-dev-HttpApiUrl"
+          }
+        }
+      }
+    }
+  }
+}

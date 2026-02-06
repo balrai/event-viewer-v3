@@ -1,0 +1,6 @@
+[submodule "app/lib/nwv2-client-lib"]
+	path = app/lib/nwv2-client-lib
+	url = git@github.com:novadyna/nwv2-client-lib.git
+[submodule "server/lib/nwv2-api-lib"]
+	path = server/lib/nwv2-api-lib
+	url = git@github.com:novadyna/nwv2-api-lib.git

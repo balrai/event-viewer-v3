@@ -1,0 +1,212 @@
+service: novaweb-eventviewer-v3
+
+plugins:
+  - serverless-s3-sync
+
+custom:
+  staticBucketName: ${env:STATIC_FILES_BUCKET_NAME}-${self:provider.stage}
+  domainName: ${env:DOMAIN_NAME, 'dev-event.novaweb.live'}
+  certificateArn: ${env:CERTIFICATE_ARN}
+  s3Sync:
+    - bucketName: ${env:STATIC_FILES_BUCKET_NAME}-${self:provider.stage}
+      localDir: .output/public
+  hooks:
+    "after:deploy:deploy":
+      - serverless s3sync
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ap-southeast-1
+  architecture: arm64
+  stage: ${opt:stage, 'dev'}
+  layers:
+    - arn:aws:lambda:ap-southeast-1:044395824272:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:2
+  environment:
+    NODE_ENV: ${env:NODE_ENV}
+    NUXT_SESSION_PASSWORD: ${env:NUXT_SESSION_PASSWORD}
+    ApiHostname: ${env:ApiHostname}
+    AdminTable: ${env:AdminTable}
+    EmailFrom: ${env:EmailFrom}
+    LogTable: ${env:LogTable}
+    qrHost: ${env:qrHost}
+    QrCodeBucket: ${env:QrCodeBucket}
+    RedisEndpoint: ${env:RedisEndpoint}
+    RehearsalTable: ${env:REHEARSAL_TABLE}
+    RehearsalViewerTable: ${env:RehearsalViewerTable}
+    ViewerTable: ${env:ViewerTable}
+    CDN_URL:
+      "Fn::GetAtt": [ApplicationCloudFront, DomainName]
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:Scan
+            - dynamodb:Query
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+          Resource:
+            - "arn:aws:dynamodb:${aws:region}:*:table/${env:ViewerTable}"
+            - "arn:aws:dynamodb:${aws:region}:*:table/${env:AdminTable}"
+            - "arn:aws:dynamodb:${aws:region}:*:table/${env:LogTable}"
+            - "arn:aws:dynamodb:${aws:region}:*:table/${env:ViewerTable}/index/*"
+            - "arn:aws:dynamodb:${aws:region}:*:table/${env:AdminTable}/index/*"
+            - "arn:aws:dynamodb:${aws:region}:*:table/${env:LogTable}/index/*"
+        - Effect: "Allow"
+          Action:
+            - cloudfront:CreateInvalidation
+          Resource: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}"
+        - Effect: "Allow"
+          Action:
+            - "kms:Decrypt"
+            - "kms:GenerateDataKey"
+          Resource: "*"
+
+functions:
+  WebApp:
+    name: NovawebEventviewerV3Function-${self:provider.stage}
+    timeout: 10
+    memorySize: 1024
+    handler: ".output/server/index.handler"
+    events:
+      - httpApi:
+          path: "/{proxy+}"
+          method: "*"
+
+package:
+  patterns:
+    - "!./**"
+    - "./.output/server/**"
+    - "./.output/public/_nuxt/**"
+
+resources:
+  Resources:
+    StaticFilesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.staticBucketName}
+
+    CloudFrontOAC:
+      Type: AWS::CloudFront::OriginAccessControl
+      Properties:
+        OriginAccessControlConfig:
+          Name: !Sub "OAC for ${self:custom.staticBucketName}"
+          OriginAccessControlOriginType: s3
+          SigningBehavior: always
+          SigningProtocol: sigv4
+
+    ApplicationCloudFront:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          # Add custom domain configuration
+          Aliases:
+            - ${self:custom.domainName}
+          # Add SSL certificate
+          ViewerCertificate:
+            AcmCertificateArn: ${self:custom.certificateArn}
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          Enabled: true
+          Origins:
+            - Id: StaticFilesOrigin
+              DomainName:
+                "Fn::GetAtt": [StaticFilesBucket, RegionalDomainName]
+              OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+              S3OriginConfig: {}
+            - Id: NuxtAppOrigin
+              DomainName: !Sub "${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+              CustomOriginConfig:
+                OriginProtocolPolicy: "https-only"
+          CacheBehaviors:
+            - PathPattern: "_nuxt/*"
+              TargetOriginId: StaticFilesOrigin
+              ViewerProtocolPolicy: "redirect-to-https"
+              AllowedMethods: ["GET", "HEAD"]
+              CachedMethods: ["GET", "HEAD"]
+              ForwardedValues:
+                QueryString: false
+                Cookies:
+                  Forward: "none"
+              DefaultTTL: 31536000
+
+            - PathPattern: "_ipx/*"
+              TargetOriginId: NuxtAppOrigin
+              ViewerProtocolPolicy: "redirect-to-https"
+              AllowedMethods: ["GET", "HEAD", "OPTIONS"]
+              CachedMethods: ["GET", "HEAD", "OPTIONS"]
+              ForwardedValues:
+                QueryString: true
+                Cookies:
+                  Forward: "none"
+
+            - PathPattern: "vendor/*"
+              TargetOriginId: StaticFilesOrigin
+              ViewerProtocolPolicy: "redirect-to-https"
+              AllowedMethods: ["GET", "HEAD", "OPTIONS"]
+              CachedMethods: ["GET", "HEAD", "OPTIONS"]
+              ForwardedValues:
+                QueryString: false
+                Cookies:
+                  Forward: "none"
+
+            - PathPattern: "favicon.ico"
+              TargetOriginId: StaticFilesOrigin
+              ViewerProtocolPolicy: "redirect-to-https"
+              AllowedMethods: ["GET", "HEAD"]
+              CachedMethods: ["GET", "HEAD"]
+              ForwardedValues:
+                QueryString: false
+                Cookies:
+                  Forward: "none"
+            - PathPattern: "robots.txt"
+              TargetOriginId: StaticFilesOrigin
+              ViewerProtocolPolicy: "redirect-to-https"
+              AllowedMethods: ["GET", "HEAD", "OPTIONS"]
+              CachedMethods: ["GET", "HEAD", "OPTIONS"]
+              ForwardedValues:
+                QueryString: false
+                Cookies:
+                  Forward: "none"
+
+          DefaultCacheBehavior:
+            TargetOriginId: NuxtAppOrigin
+            ViewerProtocolPolicy: "redirect-to-https"
+            AllowedMethods:
+              ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+            CachedMethods: ["GET", "HEAD"]
+            ForwardedValues:
+              QueryString: true
+              Headers:
+                - Authorization
+                - Content-Type
+                - Content-Length
+              Cookies:
+                Forward: "all"
+            MinTTL: 0
+            DefaultTTL: 0
+            MaxTTL: 0
+
+    StaticFilesBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket:
+          Ref: StaticFilesBucket
+        PolicyDocument:
+          Statement:
+            - Sid: AllowCloudFrontAccess
+              Effect: Allow
+              Principal:
+                Service: cloudfront.amazonaws.com
+              Action:
+                - s3:GetObject
+              Resource:
+                "Fn::Join":
+                  - ""
+                  - - "Fn::GetAtt": [StaticFilesBucket, Arn]
+                    - "/*"
+              Condition:
+                StringEquals:
+                  AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ApplicationCloudFront}"
