@@ -79,7 +79,7 @@ package:
   patterns:
     - "!./**"
     - "./.output/server/**"
-    - "./.output/public/_nuxt/**"
+    - "!./.output/server/**/*.map"
 
 resources:
   Resources:

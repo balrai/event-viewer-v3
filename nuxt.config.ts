@@ -26,20 +26,25 @@ export default defineNuxtConfig({
   },
   vite: {
     plugins: [
-      ,
       nodePolyfills({
         globals: {
           Buffer: true,
           global: true,
           process: true
         },
-        include: ["buffer", "process", "util", "events"]
+        include: ["buffer", "process", "util"]
       })
     ]
   },
   nitro: {
     preset: "aws-lambda",
+    externals: {
+      external: ["aws-sdk"]
+    },
     serveStatic: false,
+    minify: true,
+    sourceMap: false,
+    compressPublicAssets: true,
     publicAssets: [
       {
         baseURL: "/_nuxt/",
