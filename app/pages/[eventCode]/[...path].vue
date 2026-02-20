@@ -6,7 +6,7 @@ import LiveStreaming from "@/components/Livestreaming.vue";
 import ProjectStageBadge from "@/components/ProjectStageBadge.vue";
 import ConnectionStatus from "@/components/ConnectionStatus.vue";
 import { reactive, ref, computed, onMounted, onBeforeUnmount } from "vue";
-import { onBeforeRouteLeave } from "vue-router";
+import { generateClient } from "aws-amplify/api";
 
 interface EventData {
   error?: string;
@@ -25,6 +25,14 @@ const webpagePath = route.params.path
   : null;
 
 const viewerStore = useViewerStore();
+const authStore = useAuthStore();
+const liveStateStore = useLiveStateStore();
+const {
+  subscribe: subscribeToLiveState,
+  unsubscribe: unsubscribeFromLiveState,
+  isConnected
+} = useAppSyncSubscription();
+const { user } = storeToRefs(authStore);
 const { event, head, body } = storeToRefs(viewerStore);
 
 const { data: eventData, pending } = await useFetch<EventData>(`/api/resolve`, {
@@ -44,7 +52,7 @@ if (eventData.value) {
     viewerStore.setSession(eventData.value.session);
   }
   if (eventData.value.liveState) {
-    viewerStore.setLiveState(eventData.value.liveState);
+    liveStateStore.setLiveState(eventData.value.liveState);
   }
   viewerStore.setEvent(eventData.value);
   viewerStore.setTemplate(eventData.value.htmlContent);
@@ -53,9 +61,72 @@ if (eventData.value) {
 }
 
 useHead(head.value);
+const plugin = useNuxtApp();
 
-onMounted(() => {
-  console.log("Event data on mount:", event.value);
+let client: any = null;
+let subscription: any = null;
+
+const fetchState = async () => {
+  if (!client) return;
+
+  const query = `
+    query GetUser {
+      getUser(id: 1) {
+        id
+        name
+        email
+      }
+    }`;
+
+  try {
+    const response = await client.graphql({
+      query,
+      authMode: "lambda",
+      authToken: user.value?.accessToken
+    });
+
+    console.log("GraphQL response:", response);
+  } catch (error) {
+    console.error("GraphQL error:", error);
+  }
+};
+
+function subscribeToUserUpdates() {
+  if (!client) return;
+
+  const onPutUser = client.graphql({
+    query: `
+      subscription userAdded {
+        userAdded {
+          id
+          name
+          email
+        }
+      }`
+  }) as any;
+
+  subscription = onPutUser.subscribe({
+    next: (response: any) => {
+      console.log("User updated:", response);
+    },
+    error: (error: any) => {
+      console.error("Subscription error:", error);
+    }
+  });
+}
+
+onMounted(async () => {
+  client = generateClient();
+  viewerStore.replaceEventLinks();
+  fetchState();
+  subscribeToUserUpdates();
+});
+
+onBeforeUnmount(() => {
+  // Clean up any subscriptions or intervals here
+  if (subscription) {
+    subscription.unsubscribe();
+  }
 });
 
 // const state: any = reactive({

@@ -20,7 +20,9 @@ export default class EventLoader extends ExtensionLoader {
         return self.api.login(username, password, langCode, redirectUrl);
       },
       logout(redirectUrl: string | null = null) {
-        return self.api.logout(redirectUrl);
+        const authStore = useAuthStore();
+        return authStore.logout(redirectUrl);
+        // return self.api.logout(redirectUrl);
       },
       forgotPassword(identifier: string) {
         return self.api.forgotPassword(identifier);

@@ -235,6 +235,7 @@ export const useViewerStore = defineStore("viewer", () => {
   }
 
   function replaceEventLinks() {
+    console.log("Replacing event links with baseURL:", baseURL);
     if (baseURL) {
       const elements = document.querySelectorAll("a[nova-href]");
       console.log("elements", elements);
@@ -307,7 +308,7 @@ export const useViewerStore = defineStore("viewer", () => {
 
   function getUrl(path = "") {
     if (path) {
-      const url = new URL(path, `${baseURL}/${eventCode.value || ""}`);
+      const url = new URL(`${eventCode.value}/${path}`, baseURL);
       return url.toString();
     }
     return baseURL;
@@ -335,7 +336,7 @@ export const useViewerStore = defineStore("viewer", () => {
         el.type = s?.type || "text/javascript";
         el.text = s?.innerHTML || "";
         document.body.appendChild(el);
-        replaceEventLinks();
+
         loadNext(i + 1);
       }
     };
@@ -362,6 +363,7 @@ export const useViewerStore = defineStore("viewer", () => {
     session,
     setSession,
     liveState,
+    replaceEventLinks,
     setLiveState
   };
 });

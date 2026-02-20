@@ -5,6 +5,7 @@ import { IdPasscodeAuth } from "~~/server/lib/nwv2-api-lib/src/event-auth/authen
 import AnalyticsFacade from "~~/server/lib/nwv2-api-lib/src/facades/analytics-facade";
 import { validateEmail } from "~~/server/lib/nwv2-api-lib/src/util/string-lib";
 import { PasscodeOnlyAuth } from "~~/server/lib/nwv2-api-lib/src/event-auth/authentication-handlers-impl/passcode-only-auth";
+import { access } from "fs";
 
 export default defineEventHandler(async (event) => {
   try {
@@ -72,7 +73,9 @@ export default defineEventHandler(async (event) => {
       await setUserSession(event, {
         user: {
           userId: authResult.data.userId,
-          locale: authResult.data.locale
+          locale: authResult.data.locale,
+          accessToken: authResult.data.token,
+          accessTokenExp: authResult.data.expireAt
         },
         eventId: eventId,
         secure: {
