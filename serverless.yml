@@ -97,6 +97,17 @@ resources:
           SigningBehavior: always
           SigningProtocol: sigv4
 
+    ServiceWorkerResponseHeadersPolicy:
+      Type: AWS::CloudFront::ResponseHeadersPolicy
+      Properties:
+        ResponseHeadersPolicyConfig:
+          Name: ServiceWorkerResponseHeadersPolicy
+          CustomHeadersConfig:
+            Items:
+              - Header: "Service-Worker-Allowed"
+                Value: "/"
+                Override: true
+
     ApplicationCloudFront:
       Type: AWS::CloudFront::Distribution
       Properties:
@@ -139,6 +150,30 @@ resources:
               CachedMethods: ["GET", "HEAD", "OPTIONS"]
               ForwardedValues:
                 QueryString: true
+                Cookies:
+                  Forward: "none"
+
+            - PathPattern: "ivs/amazon-ivs-service-worker-loader.js"
+              TargetOriginId: StaticFilesOrigin
+              ViewerProtocolPolicy: "redirect-to-https"
+              AllowedMethods: ["GET", "HEAD", "OPTIONS"]
+              CachedMethods: ["GET", "HEAD", "OPTIONS"]
+              ForwardedValues:
+                QueryString: false
+                Cookies:
+                  Forward: "none"
+              MinTTL: 0
+              DefaultTTL: 0
+              MaxTTL: 0
+              ResponseHeadersPolicyId: !Ref ServiceWorkerResponseHeadersPolicy
+
+            - PathPattern: "ivs/*"
+              TargetOriginId: StaticFilesOrigin
+              ViewerProtocolPolicy: "redirect-to-https"
+              AllowedMethods: ["GET", "HEAD", "OPTIONS"]
+              CachedMethods: ["GET", "HEAD", "OPTIONS"]
+              ForwardedValues:
+                QueryString: false
                 Cookies:
                   Forward: "none"
 

@@ -1,15 +1,27 @@
 /* eslint-disable */
-import videojs from "video.js";
-import "video.js/dist/video-js.css";
-import "@videojs/http-streaming";
-import { registerIVSTech } from "amazon-ivs-player";
-import type { VideoJSEvents, VideoJSIVSTech } from "amazon-ivs-player";
-
+import type Player from "video.js/dist/types/player";
+import { registerIVSTech, registerIVSQualityPlugin } from "amazon-ivs-player";
+import type {
+  TextCue,
+  TextMetadataCue,
+  ErrorType,
+  PlayerEventType,
+  PlayerState,
+  VideoJSEvents,
+  VideoJSIVSTech,
+  VideoJSQualityPlugin,
+  PlayerError,
+  PlayerConfig
+} from "amazon-ivs-player";
 import LiveStreaming from "../Loader";
+
+interface IVSPlayer extends Player, VideoJSQualityPlugin, VideoJSIVSTech {}
+
+let videojs: any = null;
 
 export default class VideoJsLoader extends LiveStreaming {
   playerId: string;
-  videoJsPlayer: any = null;
+  videoJsPlayer: IVSPlayer | null = null;
   ksdk = null;
   constructor(options: Record<string, any> = {}) {
     super();
@@ -30,120 +42,61 @@ export default class VideoJsLoader extends LiveStreaming {
     return this.videoJsPlayer && !this.videoJsPlayer.paused();
   }
 
-  override async setupPlayer(url: string, config: Record<string, any> = {}) {
-    console.log(
-      "Setting up Video.JS player with URL:",
-      url,
-      "and config:",
-      config
-    );
+  override async setupPlayer(url: string): Promise<boolean> {
+    if (!videojs) {
+      videojs = (await import("video.js")).default;
+      await import("video.js/dist/video-js.css");
+    }
+
+    const mimeTypes = {
+      ".m3u8": "application/x-mpegURL",
+      ".mp4": "video/mp4",
+      ".webm": "video/webm"
+    };
+
     if (await super.setupPlayer(url)) {
       console.log("Initializing Video.JS player");
+      const extension = url.substring(url.lastIndexOf("."));
+      const detectedMimeType =
+        mimeTypes[extension as keyof typeof mimeTypes] ||
+        "application/x-mpegURL";
       const playerConfig = Object.assign({
-        autoplay: "muted",
+        autoplay: true,
         controls: true
       });
       if (this.isAmazonIvsEnabled) {
         registerIVSTech(videojs, {
-          wasmBinary:
-            "amazon-ivs-player/dist/assets/amazon-ivs-wasmworker.min.wasm",
-          wasmWorker:
-            "amazon-ivs-player/dist/assets/amazon-ivs-wasmworker.min.js"
-        });
-        playerConfig.techOrder = ["AmazonIVS"];
+          wasmBinary: "/ivs/amazon-ivs-wasmworker.min.wasm",
+          wasmWorker: "/ivs/amazon-ivs-wasmworker.min.js",
+          serviceWorker: {
+            url: "/ivs/amazon-ivs-service-worker-loader.js"
+          }
+        } as PlayerConfig);
+        registerIVSQualityPlugin(videojs);
+        playerConfig.techOrder = ["AmazonIVS", "html5"];
       }
-
       const self = this;
+      this.videoJsPlayer = videojs("videojs", playerConfig, () => {
+        const player = toRaw(self.videoJsPlayer) as IVSPlayer;
+        player?.src({
+          src: url,
+          type: detectedMimeType
+        });
 
-      this.videoJsPlayer = videojs(
-        this.playerId,
-        playerConfig,
+        this.setupVideoJsPlayerEvents(player);
 
-        function onPlayerReady() {
-          const player = self.videoJsPlayer;
-          player.playsinline(true);
-          console.log("Url::-", url);
-          player.src(url);
-
-          player.on("ready", () => {
-            console.log("Video.JS player is ready");
-
-            player.play();
-          });
-
-          player.on("texttrackchange", (e) => {
-            const tracks = player.textTracks();
-
-            for (let i = 0; i < tracks.length; i++) {
-              switch (tracks[i].label) {
-                case "Timed Metadata":
-                  tracks[i].on("cuechange", function () {
-                    const activeCue = tracks[i].activeCues[0];
-                    if (self.isNPayloadData(activeCue.text)) {
-                      const cmdData = self.parseNPayloadData(activeCue.text);
-                      self.dispatchLiveStateCmdData(cmdData);
-                    }
-                  });
-                  break;
-                case "segment-metadata":
-                  break;
-              }
-            }
-          });
-
-          player.on("timeupdate", () => {
-            self.dispatchExtensionEvent("time", {
-              time: player.currentTime()
-            });
-          });
-          player.on("play", (data) => {
-            //  console.log('play', data)
-            clearTimeout(self.tryNextTimeout);
-            clearTimeout(self.bufferTimeout);
-            clearInterval(self.retryInterval);
-            self.hideErrorTimeout = setTimeout(() => {
-              self.retryAttempts = 0;
-              self.hideError();
-            }, 1000);
-          });
-          player.on("error", (error) => {
-            clearTimeout(self.hideErrorTimeout);
-            self.onPlayerError(error);
-          });
-          player.on("warning", (error) => {
-            clearTimeout(self.hideErrorTimeout);
-            self.onPlayerWarning(error);
-          });
-          //  player.on('playbackRateChanged', (data) => {
-          //    self.onPlaybackRateChanged(data)
-          //  })
-          //  player.on('visualQuality', (data) => {
-          //    self.onVisualQuality(data)
-          //  })
-          player.on("stalled", () => {
-            clearTimeout(self.bufferTimeout);
-            if (self.bufferTimeout > 0) {
-              self.bufferTimeout = setTimeout(() => {
-                self.onPlayerError({
-                  code: 990002,
-                  message: `Buffer timeout`,
-                  type: "error"
-                });
-              }, self.bufferTimeoutWindow * 1000);
-            }
-          });
-
-          player.play();
-
-          clearTimeout(self.tryNextTimeout);
-          clearTimeout(self.bufferTimeout);
-          clearInterval(self.retryInterval);
-          self.hideErrorTimeout = setTimeout(() => {
-            self.retryAttempts = 0;
-            self.hideError();
-          }, 1000);
+        if (self.isAmazonIvsEnabled) {
+          player?.enableIVSQualityPlugin();
+          this.setupIvsPlayerEvents(player);
         }
-      );
+        clearTimeout(self.tryNextTimeout);
+        clearTimeout(self.bufferTimeout);
+        clearInterval(self.retryInterval);
+        self.hideErrorTimeout = setTimeout(() => {
+          self.retryAttempts = 0;
+          self.hideError();
+        }, 1000);
+      }) as IVSPlayer;
 
       if (this.bufferTimeout) {
         clearTimeout(this.bufferTimeout);
@@ -156,39 +109,48 @@ export default class VideoJsLoader extends LiveStreaming {
         }, this.bufferTimeoutWindow * 1000);
       }
     }
-    return this.videoJsPlayer;
+    return !!this.videoJsPlayer;
+  }
+  setupVideoJsPlayerEvents(player: IVSPlayer) {
+    player.on("error", () => {
+      const error = player.error();
+      console.error("Video.JS Player Error:", error);
+      this.onPlayerError({
+        code: error?.code || 990000,
+        message: error?.message || "Unknown Video.JS error",
+        type: "error"
+      });
+    });
+  }
+  setupIvsPlayerEvents(player: IVSPlayer) {
+    const playerEvent = player.getIVSEvents().PlayerEventType;
+    const ivsPlayer = player.getIVSPlayer();
+
+    // for subtitles and captions (if any)
+    ivsPlayer.addEventListener(playerEvent.TEXT_CUE, (e: TextCue) => {
+      console.log("IVS Player Text Cue:", e);
+    });
+
+    ivsPlayer.addEventListener(
+      playerEvent.TEXT_METADATA_CUE,
+      (e: TextMetadataCue) => {
+        console.log("IVS Player Text Metadata Cue:", e);
+      }
+    );
+
+    ivsPlayer.addEventListener(playerEvent.ERROR, (e: PlayerError) => {
+      console.error("IVS Player Error:", e);
+      this.onPlayerError({
+        code: e.code || 990002,
+        message: e.message || "Unknown IVS Player error",
+        type: e.type || "error"
+      });
+    });
   }
 
   stopStream() {
-    console.log("Stopping Video.JS stream");
-    if (this.videoJsPlayer && this.videoJsPlayer.stop) {
-      this.videoJsPlayer.stop();
-    }
-  }
-
-  onConnectionError(error) {
-    if (this.videoJsPlayer && this.videoJsPlayer.stop)
-      this.videoJsPlayer.stop();
-    super.onConnectionError(error);
-  }
-
-  onLowBandwidthWarning(error) {
-    if (this.videoJsPlayer && this.videoJsPlayer.stop)
-      this.videoJsPlayer.stop();
-    super.onLowBandwidthWarning(error);
-  }
-
-  setPosition(pos) {
-    if (this.videoJsPlayer) this.videoJsPlayer.currentTime(pos);
-  }
-
-  removePlayerContainer() {
-    super.removePlayerContainer();
-    if (this.videoJsPlayer && this.videoJsPlayer.stop) {
-      this.videoJsPlayer.stop();
-      this.videoJsPlayer.dispose();
-    }
+    this.videoJsPlayer?.dispose();
     this.videoJsPlayer = null;
-    this.ksdk = null;
+    return;
   }
 }

@@ -32,8 +32,13 @@ export default defineNuxtConfig({
       region: "ap-southeast-1"
     }
   },
-  // css: ["video.js/dist/video-js.css"],
   vite: {
+    define: {
+      global: "window"
+    },
+    // optimizeDeps: {
+    //   exclude: ["amazon-ivs-player"] // Exclude IVS Player and Video.js from pre-bundling
+    // },
     plugins: [
       nodePolyfills({
         globals: {

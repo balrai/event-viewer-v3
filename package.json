@@ -16,7 +16,6 @@
     "@nuxt/hints": "1.0.0-alpha.5",
     "@nuxt/image": "2.0.0",
     "@pinia/nuxt": "0.11.3",
-    "@videojs/http-streaming": "^3.17.4",
     "amazon-ivs-player": "^1.49.0",
     "aws-amplify": "^6.16.2",
     "cheerio": "^1.2.0",

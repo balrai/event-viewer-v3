@@ -23,9 +23,6 @@ importers:
       '@pinia/nuxt':
         specifier: 0.11.3
         version: 0.11.3(magicast@0.5.1)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.27(typescript@5.9.3)))
-      '@videojs/http-streaming':
-        specifier: ^3.17.4
-        version: 3.17.4(video.js@8.23.7)
       amazon-ivs-player:
         specifier: ^1.49.0
         version: 1.49.0(bowser@2.13.1)(lodash@4.17.23)

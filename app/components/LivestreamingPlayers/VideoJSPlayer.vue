@@ -5,7 +5,7 @@ const props = defineProps<{
   extLoader: VideoJsLoader;
 }>();
 
-const playerId = computed(() => props.extLoader?.playerId ?? "videojs");
+const playerId = "videojs";
 
 onMounted(() => {
   nextTick(() => {
@@ -19,7 +19,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <video :id="playerId" class="video-js" atuoplay controls></video>
+  <video
+    :id="playerId"
+    class="video-js"
+    controls
+    playsinline
+    crossOrigin="anonymous"
+  ></video>
 </template>
 
 <style scoped>
