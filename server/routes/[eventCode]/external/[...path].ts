@@ -1,6 +1,6 @@
 import ExternalApiHandler, {
   type HttpMethod
-} from "../../lib/ExternalApiHandler";
+} from "~~/server/lib/ExternalApiHandler";
 
 export default defineEventHandler(async (event) => {
   try {

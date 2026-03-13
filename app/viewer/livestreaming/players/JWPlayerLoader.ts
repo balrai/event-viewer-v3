@@ -16,8 +16,6 @@ export default class JWPlayerLoader extends LiveStreaming {
   playerId: string;
   playersInstalled = false;
   timer: any = null;
-  jwplayer: any = null;
-  ivsPlayer: any = null;
   ivsEvents: any = null;
   _ivsMetadataHandler: any = null;
   _resumePlayAttempts = 0;
@@ -44,6 +42,16 @@ export default class JWPlayerLoader extends LiveStreaming {
 
   override get isPlayerSDKReady() {
     return this.playersInstalled;
+  }
+
+  override get isPlaying() {
+    console.log(
+      "issync jwplayer:",
+      this.player,
+      "state:",
+      this.player?.getState()
+    );
+    return this.player && this.player.getState() === "playing";
   }
 
   get isAmazonIvsEnabled() {
@@ -74,7 +82,7 @@ export default class JWPlayerLoader extends LiveStreaming {
   override async setupPlayer(url: string, config: Record<string, any> = {}) {
     console.log("settting up player", this);
 
-    if (this.jwplayer) {
+    if (this.player) {
       this.removePlayerContainer();
     }
 
@@ -99,7 +107,7 @@ export default class JWPlayerLoader extends LiveStreaming {
         volume: 50,
         ...config
       };
-      this.jwplayer = window.jwplayer(this.playerId).setup(playerConfig);
+      this.player = window.jwplayer(this.playerId).setup(playerConfig);
 
       const self = this;
       if (this.bufferTimeout) {
@@ -112,25 +120,26 @@ export default class JWPlayerLoader extends LiveStreaming {
           });
         }, this.bufferTimeoutWindow * 1000);
       }
-      if (this.jwplayer) {
-        this.jwplayer.on("ready", () => {
+      if (this.player) {
+        this.player.on("ready", () => {
           console.log("JWPlayer is ready and playing");
           if (this.sessionType === "Archive" && this.lastPlayPosition) {
-            this.jwplayer.seek(this.lastPlayPosition);
-            this.jwplayer.on("meta", () => {
+            this.player.seek(this.lastPlayPosition);
+            this.player.on("meta", () => {
               //TODO: Do we need to Listen for meta events to get duration info?
-              this.maxVideoLength = this.jwplayer.getDuration();
+              this.maxVideoLength = this.player.getDuration();
             });
           }
         });
-        this.jwplayer.on("play", () => {
+        this.player.on("play", () => {
+          this._hideError();
           if (this.sessionType === "Archive") {
             if (this.timer) {
               clearInterval(this.timer);
               this.timer = null;
             }
             this.timer = setInterval(() => {
-              if (!this.jwplayer || this.jwplayer.getState() !== "playing") {
+              if (!this.player || this.player.getState() !== "playing") {
                 clearInterval(this.timer);
                 this.timer = null;
                 return;
@@ -139,17 +148,21 @@ export default class JWPlayerLoader extends LiveStreaming {
             }, 5000);
           }
         });
-        this.jwplayer.on("complete", () => {
+        this.player.on("complete", () => {
           if (this.sessionType === "Archive") {
             super.updateStreamViewInfo();
           }
         });
+        this.player.on("stateChange", (data: any) => {
+          console.log("JWPlayer state changed:", data);
+        });
 
         if (this.isAmazonIvsEnabled) {
           // Store a reference to the metadata handler for later removal
+
           this._ivsMetadataHandler = null;
 
-          this.jwplayer.on("providerPlayer", function (player: any) {
+          this.player.on("providerPlayer", function (player: any) {
             console.log("Provider player event received:", player);
             // Clean up any previous IVS player resources first
             if (self.ivsPlayer && self._ivsMetadataHandler) {
@@ -177,6 +190,7 @@ export default class JWPlayerLoader extends LiveStreaming {
 
               // Create the handler function and store the reference
               self._ivsMetadataHandler = (data: any) => {
+                console.log("IVS metadata event received:", data);
                 if (!data || !data.text) return;
                 try {
                   const cmdData = JSON.parse(data.text);
@@ -193,11 +207,58 @@ export default class JWPlayerLoader extends LiveStreaming {
                 playerEvent.TEXT_METADATA_CUE,
                 self._ivsMetadataHandler
               );
+              self.ivsPlayer.addEventListener(
+                playerEvent.STATE_CHANGED,
+                (state: any) => {
+                  const playerState = self.ivsEvents.PlayerState;
+                  if (state === playerState.PLAYING) {
+                    clearTimeout(self.bufferTimeout);
+                    self.bufferTimeout = null;
+                    self._startIvsWatchdog();
+                  }
+                }
+              );
+              self.ivsPlayer.addEventListener(
+                playerEvent.ERROR,
+                (error: any) => {
+                  console.error("IVS Player error:", error);
+                  self.onPlayerError({
+                    code: error.code || 990002,
+                    message: error.message || "An error occurred in IVS Player",
+                    type: "error"
+                  });
+                }
+              );
+              self.ivsPlayer.addEventListener(
+                playerEvent.BUFFERING,
+                (event: any) => {
+                  console.log("IVS Player buffering:", event);
+                  self._stopIvsWatchdog();
+                  clearTimeout(self.bufferTimeout);
+                  self.bufferTimeout = setTimeout(() => {
+                    console.warn(
+                      "IVS buffering exceeded 10s, restarting stream"
+                    );
+                    self.restartStream();
+                  }, 10000);
+                }
+              );
+              self.ivsPlayer.addEventListener(
+                playerEvent.ENDED,
+                (event: any) => {
+                  console.log("IVS Player ended:", event);
+                  self.onPlayerError({
+                    code: 990003,
+                    message: "IVS Player stream ended",
+                    type: "Info"
+                  });
+                }
+              );
             }
           });
         } else {
           // Use a single meta event handler with memory optimizations
-          this.jwplayer.on("meta", (data: any) => {
+          this.player.on("meta", (data: any) => {
             // Process TXXX metadata payload if available
             if (data && data.metadata && data.metadata.TXXX) {
               if (this.isNPayloadData(data.metadata.TXXX)) {
@@ -220,7 +281,7 @@ export default class JWPlayerLoader extends LiveStreaming {
                 // Get quality info - with safeguards to prevent errors
                 let bitrate = "";
                 try {
-                  const quality = this.jwplayer.getVisualQuality();
+                  const quality = this.player.getVisualQuality();
                   if (quality && quality.level) {
                     bitrate = quality.level.bitrate;
                   }
@@ -257,13 +318,13 @@ export default class JWPlayerLoader extends LiveStreaming {
             }
           });
         }
-        this.jwplayer.on("setupError", (data: any) => {
+        this.player.on("setupError", (data: any) => {
           console.error("setupError", data);
           this.onPlayerError(data);
         });
         let tmp = -1;
         let compulsoryView = this.videoProp?.compulsoryView || false;
-        this.jwplayer.on("time", (time: { position: number }) => {
+        this.player.on("time", (time: { position: number }) => {
           if (this.sessionType !== "Archive") return;
           if (tmp !== Math.round(time.position)) {
             // As 'time' event is trigger 3 - 4 times per second, triggerQuiz function will only run once per second
@@ -299,14 +360,14 @@ export default class JWPlayerLoader extends LiveStreaming {
       }
     }
 
-    return this.jwplayer;
+    return this.player;
   }
 
   async triggerQuiz(time: number) {
     this.quizMarkers.forEach(async (marker: any) => {
       if (time === marker.timer / 1000 && !marker.skip) {
         let quizId = marker.triggerValues.quizId;
-        this.jwplayer.pause();
+        this.player.pause();
         // TODO: activate quiz using PINIA Store
       }
     });
@@ -354,12 +415,12 @@ export default class JWPlayerLoader extends LiveStreaming {
     }
 
     // Properly destroy JWPlayer instance
-    if (this.jwplayer) {
+    if (this.player) {
       try {
         console.log("Destroying JWPlayer instance");
-        this.jwplayer.off();
-        this.jwplayer.stop();
-        this.jwplayer.remove();
+        this.player.off();
+        this.player.stop();
+        this.player.remove();
       } catch (e) {
         console.warn("Error during player cleanup:", e);
       }
@@ -386,7 +447,7 @@ export default class JWPlayerLoader extends LiveStreaming {
     };
 
     // Clear references to allow garbage collection
-    this.jwplayer = null;
+    this.player = null;
     this.ivsPlayer = null;
     this.ivsEvents = null;
   }

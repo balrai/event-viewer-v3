@@ -17,24 +17,32 @@ import AnalyticsFacade from "~~/server/lib/nwv2-api-lib/src/facades/analytics-fa
 import { OpenEnrollmentResolution } from "~~/server/utils/event-resolution/impls/open-enrollment-resolution";
 import { templateStorage } from "~~/server/lib/nwv2-api-lib/src/storage/template-storage";
 import Localization from "~~/server/lib/nwv2-api-lib/src/facades/localization";
+import { getEventUserSession } from "~~/server/utils/event-session";
 
 export default defineEventHandler(async (event) => {
   try {
     const query = getQuery(event);
     const { eventCode, path, rehearsal } = query;
-    const { secure } = (await getUserSession(event)) as any;
+
+    const { secure, user } = (await getEventUserSession(event)) as any;
     let accessToken: string | undefined = undefined;
     if (secure) {
-      accessToken = secure.accessToken;
+      accessToken = secure?.accessToken as string | undefined;
     }
-    let locale: string | undefined = Array.isArray(query.locale)
-      ? (query.locale[0] as string | undefined)
-      : ((query.locale as string | undefined) ?? undefined);
+    let locale: string | undefined =
+      user?.locale ??
+      (Array.isArray(query.locale)
+        ? (query.locale[0] as string | undefined)
+        : ((query.locale as string | undefined) ?? undefined));
 
     const eventProfile =
       await eventStorage.getEventProfileByEventCode(eventCode);
     if (!eventProfile || !eventProfile.enabled) {
-      return failure(ErrorResponse.EVENT_NOT_EXIST);
+      // return failure(ErrorResponse.EVENT_NOT_EXIST);
+      return createError({
+        statusCode: 404,
+        statusMessage: "Event not found"
+      });
     }
     const { authPreset, eventId } = eventProfile;
     if (!locale) {
@@ -57,6 +65,7 @@ export default defineEventHandler(async (event) => {
       rehearsal
     );
     locale = result.data.locale || locale;
+
     if (result.success) {
       if (rehearsal != "true") {
         try {
@@ -110,7 +119,6 @@ export default defineEventHandler(async (event) => {
           };
         }
       }
-      console.log("userSession: ", result.data);
 
       return {
         event: eventProfile,

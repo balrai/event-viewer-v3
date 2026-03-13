@@ -9,9 +9,9 @@ interface EventData {
 }
 
 export const useViewerStore = defineStore("viewer", () => {
-  const deferredScripts = useState<
+  const deferredScripts = ref<
     Array<{ src?: string; innerHTML?: string; type?: string }>
-  >("deferredScripts", () => []);
+  >([]);
   const config = useRuntimeConfig();
   const baseURL = config.public.baseURL || "";
   const event = useState("event", () => null);
@@ -19,11 +19,13 @@ export const useViewerStore = defineStore("viewer", () => {
   const currentPath = useState<string | null>("currentPath", () => null);
   const userSession = useState("userSession", () => null);
   const loading = ref(false);
-  const head = useState<Object | null>("header", () => null);
-  const body = useState<string | null>("body", () => null);
+  // const head = useState<Object | null>("header", () => null);
+  // const body = useState<string | null>("body", () => null);
+  const head = shallowRef<Object | null>(null);
+  const body = shallowRef<string | null>(null);
   const error = ref<string | null>(null);
   const session = useState("session", () => null);
-  const liveState = useState("liveState", () => ({}));
+
   let observer: MutationObserver | null = null;
 
   const extensions = useState<Record<string, boolean>>(
@@ -31,9 +33,6 @@ export const useViewerStore = defineStore("viewer", () => {
     () => ({})
   );
 
-  const { viewer } = useViewer(); // ensure viewer is initialized
-
-  console.log("Viewer store initialized, viewer:", viewer);
   const extensionRegistry: Record<string, Component> = {
     livestreaming: {
       component: defineAsyncComponent(
@@ -49,9 +48,6 @@ export const useViewerStore = defineStore("viewer", () => {
 
   const whitelist = new Set(Object.keys(extensionRegistry));
 
-  function setLiveState(state: Record<string, any>) {
-    liveState.value = { ...liveState.value, ...state };
-  }
   function setSession(sessionData: any) {
     session.value = sessionData;
   }
@@ -126,6 +122,7 @@ export const useViewerStore = defineStore("viewer", () => {
             headObj.__dangerouslyDisableSanitizersByTagID || {};
           headObj.__dangerouslyDisableSanitizersByTagID[id] = ["innerHTML"];
         }
+        $el.remove();
       });
 
       headObj.style = [];
@@ -180,26 +177,6 @@ export const useViewerStore = defineStore("viewer", () => {
           )
         );
 
-        headObj.script = [];
-        Array.from(doc.querySelectorAll("script")).forEach((el, i) => {
-          const src = el.getAttribute("src");
-          if (src && src.includes("webpage.js")) {
-            return;
-          }
-          if (src) headObj.script.push({ src });
-          else {
-            const id = `inline-script-${Date.now()}-${i}`;
-            headObj.script.push({
-              innerHTML: el.innerHTML || "",
-              type: el.getAttribute("type") || "text/javascript",
-              hid: id
-            });
-            headObj.__dangerouslyDisableSanitizersByTagID =
-              headObj.__dangerouslyDisableSanitizersByTagID || {};
-            headObj.__dangerouslyDisableSanitizersByTagID[id] = ["innerHTML"];
-          }
-        });
-
         headObj.style = [];
         Array.from(doc.querySelectorAll("style")).forEach((el, i) => {
           const id = `inline-style-${Date.now()}-${i}`;
@@ -211,17 +188,24 @@ export const useViewerStore = defineStore("viewer", () => {
         initExtensionObserver();
         body.value = doc.body ? doc.body.innerHTML || null : null;
 
-        window.addEventListener("nova.viewer.api.ready", () => {
-          executeDeferredScripts();
-          const w: any = window;
-          if (w.NovaViewer) {
-            w.NovaViewer.initParams = {
-              ...w.NovaViewer.initParams,
-              error: error.value,
-              redirect: eventCode.value
-            };
-          }
-        });
+        window.addEventListener(
+          "nova.viewer.api.ready",
+          () => {
+            console.log(
+              "Nova Viewer API is ready, executing deferred scripts..."
+            );
+            executeDeferredScripts();
+            const w: any = window;
+            if (w.NovaViewer) {
+              w.NovaViewer.initParams = {
+                ...w.NovaViewer.initParams,
+                error: error.value,
+                redirect: eventCode.value
+              };
+            }
+          },
+          { once: true }
+        );
         // If viewer already ready (page loaded after viewer init), run immediately
         if ((window as any).NovaViewer) {
           executeDeferredScripts();
@@ -235,18 +219,13 @@ export const useViewerStore = defineStore("viewer", () => {
   }
 
   function replaceEventLinks() {
-    console.log("Replacing event links with baseURL:", baseURL);
     if (baseURL) {
       const elements = document.querySelectorAll("a[nova-href]");
-      console.log("elements", elements);
 
       for (let index = 0; index < elements.length; index++) {
         const element = elements[index];
-        console.log("element", element);
         const path = element?.getAttribute("nova-href") || "";
-        console.log("path:", path);
         const url = getUrl(path);
-        console.log("url::", url);
         element?.setAttribute("href", url);
         element?.removeAttribute("nova-href");
       }
@@ -273,9 +252,11 @@ export const useViewerStore = defineStore("viewer", () => {
 
     observer.observe(document.body, { childList: true, subtree: true });
   }
+  const nuxtApp = useNuxtApp();
 
   function mountSingleExtension(el: HTMLElement) {
     const extName = el.getAttribute("nova-extension");
+    console.log(`Detected extension element: ${extName}`, el);
     if (extName && extensionRegistry[extName] && !(el as any).__vue_app__) {
       const ext = extensionRegistry[extName] as {
         component: any;
@@ -285,7 +266,7 @@ export const useViewerStore = defineStore("viewer", () => {
       console.log(`🚀 Lifecycle: Mounting ${extName} to real DOM`);
 
       const app = createApp(ext.component);
-      const nuxtApp = useNuxtApp();
+      console.log(`Created Vue app for ${extName}:`, app);
 
       app.use(nuxtApp.$pinia);
       app.config.globalProperties.$fetch = nuxtApp.$fetch;
@@ -297,6 +278,11 @@ export const useViewerStore = defineStore("viewer", () => {
   }
 
   function clearExistingExtensions() {
+    console.log("Clearing existing extensions from DOM");
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
     document.querySelectorAll("[nova-extension]").forEach((el) => {
       const app = (el as any).__vue_app__;
       if (app) {
@@ -311,7 +297,7 @@ export const useViewerStore = defineStore("viewer", () => {
       const url = new URL(`${eventCode.value}/${path}`, baseURL);
       return url.toString();
     }
-    return baseURL;
+    return new URL(`${eventCode.value}/`, baseURL).toString();
   }
 
   function executeDeferredScripts() {
@@ -362,8 +348,6 @@ export const useViewerStore = defineStore("viewer", () => {
     setEventCode,
     session,
     setSession,
-    liveState,
-    replaceEventLinks,
-    setLiveState
+    replaceEventLinks
   };
 });

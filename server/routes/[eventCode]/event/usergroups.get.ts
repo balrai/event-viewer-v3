@@ -2,10 +2,11 @@ import { eventStorage } from "~~/server/lib/nwv2-api-lib/src/storage/event-stora
 import { ErrorResponse } from "~~/server/lib/nwv2-api-lib/src/enums/enums";
 import EventFacade from "~~/server/lib/nwv2-api-lib/src/facades/event-facade";
 import Localization from "~~/server/lib/nwv2-api-lib/src/facades/localization";
+import { requireEventUserSession } from "~~/server/utils/event-session";
 
 export default defineEventHandler(async (event) => {
   try {
-    const { eventId } = await requireUserSession(event);
+    const { eventId } = await requireEventUserSession(event);
     const query = getQuery(event);
     const eventProfile = await eventStorage.getProfile(eventId);
     if (!eventProfile) {

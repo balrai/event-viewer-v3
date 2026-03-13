@@ -21,7 +21,7 @@ interface LiveStateUpdate {
   showStatus?: Record<string, any>;
 }
 
-let client: ReturnType<typeof generateClient> | null = null;
+let client: any = null;
 let subscription: { unsubscribe: () => void } | null = null;
 
 export function useAppSyncSubscription() {
@@ -53,9 +53,9 @@ export function useAppSyncSubscription() {
     }
 
     // Route show status changes
-    if (data.showStatus) {
-      viewerStore.setShowStatus(data.showStatus);
-    }
+    // if (data.showStatus) {
+    //   viewerStore.setShowStatus(data.showStatus);
+    // }
   }
 
   function handleStreamingUpdate(streaming: LiveStateUpdate["LiveStreaming"]) {
@@ -147,14 +147,18 @@ export function useAppSyncSubscription() {
     }
   }
 
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   function attemptReconnect(eventId: string, sessionId: string) {
     if (reconnectAttempts.value >= maxReconnectAttempts) {
       console.error("[AppSync] Max reconnect attempts reached");
       return;
     }
-
+    if (reconnectTimer) clearTimeout(reconnectTimer);
     reconnectAttempts.value++;
     const delay = Math.min(1000 * 2 ** reconnectAttempts.value, 30000);
+    reconnectTimer = setTimeout(() => {
+      subscribe(eventId, sessionId);
+    }, delay);
 
     console.log(
       `[AppSync] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.value})`
@@ -166,6 +170,10 @@ export function useAppSyncSubscription() {
   }
 
   function unsubscribe() {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
     if (subscription) {
       subscription.unsubscribe();
       subscription = null;

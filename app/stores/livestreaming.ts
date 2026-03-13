@@ -30,6 +30,10 @@ export const useStreamingStore = defineStore("livestreaming", () => {
     "streamSettings",
     () => null
   );
+  const viewerStore = useViewerStore();
+  const { eventCode } = storeToRefs(viewerStore);
+  const playerLoader = useState("playerLoader", () => null as any);
+  const player = useState("player", () => null as any);
 
   // --- Playback state ---
   const isPlaying = ref(false);
@@ -62,23 +66,45 @@ export const useStreamingStore = defineStore("livestreaming", () => {
     () => streamSettings.value?.sessionType === "Archive"
   );
 
+  const isMetaInjectEnabled = computed(() => {
+    return streamSettings.value?.wowzaMetaInject?.enabled ?? false;
+  });
+
+  const isIvsEnabled = computed(() => {
+    return streamSettings.value?.amazonIvs?.timestamp > 0;
+  });
+
+  const isSyncActive = computed(() => {
+    return isMetaInjectEnabled.value || isIvsEnabled.value;
+  });
+
   // --- Actions ---
+  function setPlayer(playerInstance: any) {
+    player.value = playerInstance;
+  }
+  function setPlayerLoader(loaderInstance: any) {
+    playerLoader.value = loaderInstance;
+  }
   function setStreamSettings(value: StreamSettings | null) {
     streamSettings.value = value;
   }
 
   async function fetchStreamSettings(params: Record<string, string>) {
     try {
-      const data = await $fetch<StreamSettings>("/api/extension/config", {
-        method: "GET",
-        query: params
-      });
+      const data = await $fetch<StreamSettings>(
+        `/${eventCode.value}/extension/config`,
+        {
+          method: "GET",
+          query: params
+        }
+      );
       console.log("Fetched stream settings:", data);
       setStreamSettings(data);
+      console.log("Updated stream settings in store:", streamSettings.value);
       return data;
     } catch (err) {
       console.error("Error fetching streaming config:", err);
-      throw err;
+      return null;
     }
   }
 
@@ -123,6 +149,8 @@ export const useStreamingStore = defineStore("livestreaming", () => {
 
   return {
     // State
+    player,
+    playerLoader,
     streamSettings,
     isPlaying,
     isBuffering,
@@ -133,6 +161,7 @@ export const useStreamingStore = defineStore("livestreaming", () => {
     // Computed
     playerType,
     isArchive,
+    isSyncActive,
     // Actions
     setStreamSettings,
     fetchStreamSettings,
@@ -140,6 +169,8 @@ export const useStreamingStore = defineStore("livestreaming", () => {
     setHealthMetrics,
     setError,
     setPlayerState,
+    setPlayerLoader,
+    setPlayer,
     reset
   };
 });

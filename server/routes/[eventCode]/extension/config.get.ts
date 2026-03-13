@@ -2,6 +2,7 @@ import { eventStorage } from "~~/server/lib/nwv2-api-lib/src/storage/event-stora
 import Localization from "~~/server/lib/nwv2-api-lib/src/facades/localization";
 import { gatherGatewayData } from "~~/server/lib/nwv2-api-lib/src/facades/analytics-facade";
 import ipRangeCheck from "ip-range-check";
+import { getEventUserSession } from "~~/server/utils/event-session";
 
 function updateStreamingUrls(streamingUrls: string[][]): string[][] {
   const oldUrlPrefix = "https://430f859e2e11.us-east-1.playback.live-video.net";
@@ -24,16 +25,21 @@ function updateStreamingUrls(streamingUrls: string[][]): string[][] {
 
 // getExtensionInstance
 export default defineEventHandler(async (event) => {
-  console.log("Extension config.get handler called");
   try {
     const query = getQuery(event);
     // const gatewayData = gatherGatewayData(event);
 
     const { eventId, instanceId, sessionId } = query;
-    console.log("Params:", { eventId, instanceId, sessionId });
+    if (!eventId || !instanceId) {
+      return createError({
+        statusCode: 400,
+        statusMessage: "Missing required parameters"
+      });
+    }
+
     let { locale } = query;
     if (!locale) {
-      const session = await getUserSession(event);
+      const session = await getEventUserSession(event);
       locale = (session.user as { locale?: string }).locale || "en-US";
     }
     if (!(await eventStorage.hasEvent(eventId))) {
@@ -77,10 +83,6 @@ export default defineEventHandler(async (event) => {
       result.questions = questions;
       return result;
     } else {
-      console.log(
-        "Localized = ",
-        Localization.localizeObject(instance, locMap?.content)
-      );
       return Localization.localizeObject(instance, locMap?.content);
     }
   } catch (e) {

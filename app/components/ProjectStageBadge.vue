@@ -1,3 +1,15 @@
+<script setup lang="ts">
+const runtimeConfig = useRuntimeConfig();
+
+const projectStage = ref("");
+
+onMounted(() => {
+  const stage = runtimeConfig.public.stage;
+  if (stage !== "prod" && stage !== "live") {
+    projectStage.value = stage;
+  }
+});
+</script>
 <template>
   <div v-if="projectStage" class="project-stage-badge" variant="danger">
     {{ projectStage }}
@@ -29,23 +41,3 @@
   opacity: 1;
 }
 </style>
-
-<script>
-import { getEnvVarSync } from "@/lib/nwv2-client-lib/api/env";
-export default {
-  data() {
-    return {
-      projectStage: ""
-    };
-  },
-  mounted() {
-    var projectId = getEnvVarSync("projectId");
-    var projectStageId = getEnvVarSync("projectStageId");
-    var projectStage = projectStageId
-      .replace(projectId, "")
-      .replace(/(^-|-$)/g, "");
-    if (projectStage != "prod" && projectStage != "live")
-      this.projectStage = projectStage;
-  }
-};
-</script>

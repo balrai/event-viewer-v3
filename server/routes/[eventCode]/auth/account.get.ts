@@ -2,11 +2,21 @@ import {
   viewerStorage,
   rehearsalViewerStorage
 } from "~~/server/lib/nwv2-api-lib/src/storage/viewer-storage";
+import {
+  requireEventUserSession,
+  setEventUserSession
+} from "~~/server/utils/event-session";
 
 export default defineEventHandler(async (event) => {
   try {
-    const session = await requireUserSession(event);
+    const session = await requireEventUserSession(event);
     const { userId } = session.user as { userId: string };
+    if (!userId) {
+      return createError({
+        statusCode: 401,
+        statusMessage: "Unauthorized"
+      });
+    }
     const query = getQuery(event);
     const rehearsal = query.rehearsal === "true";
 
@@ -28,17 +38,14 @@ export default defineEventHandler(async (event) => {
         });
       }
     }
-    await setUserSession(event, {
+    await setEventUserSession(event, {
       ...session,
       user: {
         ...session.user,
         locale: user.locale
       }
     });
-    setCookie(event, "nova.locale", user.locale || "en-US", {
-      httpOnly: false,
-      maxAge: 60 * 60 * 24 * 365
-    });
+
     return user;
   } catch (e) {
     throw createError({

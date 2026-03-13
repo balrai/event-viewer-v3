@@ -5,9 +5,11 @@ const props = defineProps<{
   extLoader: VideoJsLoader;
 }>();
 
-const playerId = "videojs";
+const playerId = computed(() => props.extLoader.playerId);
+const isIOS = ref(false);
 
 onMounted(() => {
+  isIOS.value = /iPad|iPhone|iPod/.test(navigator.userAgent);
   nextTick(() => {
     props.extLoader.startStream();
   });
@@ -21,7 +23,7 @@ onBeforeUnmount(() => {
 <template>
   <video
     :id="playerId"
-    class="video-js"
+    class="video-js vjs-default-skin"
     controls
     playsinline
     crossOrigin="anonymous"

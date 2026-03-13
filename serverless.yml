@@ -47,6 +47,7 @@ provider:
             - dynamodb:Query
             - dynamodb:PutItem
             - dynamodb:UpdateItem
+            - dynamodb:BatchWriteItem
           Resource:
             - "arn:aws:dynamodb:${aws:region}:*:table/${env:ViewerTable}"
             - "arn:aws:dynamodb:${aws:region}:*:table/${env:AdminTable}"

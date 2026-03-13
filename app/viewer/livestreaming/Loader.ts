@@ -1,5 +1,4 @@
 import ExtensionBase from "../extension/ExtensionBase";
-
 export default class LivestreamingLoader extends ExtensionBase {
   instanceId = "";
   sessionType = "";
@@ -26,6 +25,12 @@ export default class LivestreamingLoader extends ExtensionBase {
   videoProp: any = null;
   bitratesSampleSize = 5;
   quizMarkers = [];
+  player: any = null;
+  ivsPlayer: any = null;
+  _ivsLastPosition: number = -1;
+  _ivsStallCount: number = 0;
+  _ivsStallThreshold: number = 3;
+  _ivsWatchdogInterval: any = null;
   currentChunkData: {
     time: number;
     timestamp: number;
@@ -75,6 +80,10 @@ export default class LivestreamingLoader extends ExtensionBase {
     );
   }
 
+  get isPlaying() {
+    return false;
+  }
+
   get averageBitrate() {
     return (
       this.bitrates.reduce((a, b) => a + b, 0) /
@@ -84,7 +93,7 @@ export default class LivestreamingLoader extends ExtensionBase {
 
   startStream() {
     console.log("Starting livestreaming");
-    this.restartStream();
+    return this.restartStream();
   }
 
   async restartStream() {
@@ -141,6 +150,49 @@ export default class LivestreamingLoader extends ExtensionBase {
     await this.setupPlayer(currentStreamUrl);
   }
 
+  _hideError() {
+    if (this.error) {
+      this.error = null;
+      if (this.onError) {
+        this.onError(null);
+      }
+    }
+  }
+
+  _startIvsWatchdog() {
+    this._stopIvsWatchdog();
+    this._ivsLastPosition = -1;
+    this._ivsStallCount = 0;
+
+    this._ivsWatchdogInterval = setInterval(() => {
+      if (!this.ivsPlayer) return;
+      const pos: number = this.ivsPlayer.getPosition();
+
+      if (pos === this._ivsLastPosition) {
+        this._ivsStallCount++;
+        console.warn(
+          `IVS watchdog: playhead stalled at ${pos}s (${this._ivsStallCount}/${this._ivsStallThreshold})`
+        );
+        if (this._ivsStallCount >= this._ivsStallThreshold) {
+          console.error("IVS stream stalled — restarting");
+          this._stopIvsWatchdog();
+          this.restartStream();
+        }
+      } else {
+        this._ivsStallCount = 0;
+        this._ivsLastPosition = pos;
+      }
+    }, 2000);
+  }
+
+  _stopIvsWatchdog() {
+    if (this._ivsWatchdogInterval) {
+      clearInterval(this._ivsWatchdogInterval);
+      this._ivsWatchdogInterval = null;
+    }
+    this._ivsStallCount = 0;
+  }
+
   async setupPlayer(url: string) {
     if (!this.isPlayerSDKReady) return false;
     console.log("Setting up player with URL:", url);
@@ -180,6 +232,7 @@ export default class LivestreamingLoader extends ExtensionBase {
   // }
 
   playNextStream() {
+    console.log("stringURL:", this.streamingUrls);
     const locationStreams = this.streamingUrls[this.locationIndex] ?? [];
     if (this.currentStreamIndex < locationStreams.length - 1) {
       this.currentStreamIndex++;
@@ -231,6 +284,7 @@ export default class LivestreamingLoader extends ExtensionBase {
   }
 
   onPlayerError(error: { message: string; code: number; type: string }) {
+    console.log("LiveStreaming onPlayerError", error);
     if (error.code) {
       if (error.code >= 210000 && error.code < 300000) {
         clearTimeout(this.tryNextTimeout);
@@ -262,7 +316,21 @@ export default class LivestreamingLoader extends ExtensionBase {
       } else if (error.code >= 990000) {
         this.onConnectionError(error);
       } else {
-        this.onCustomError(error);
+        console.log("Error: 404");
+        clearTimeout(this.tryNextTimeout);
+        let self = this;
+        this.showConnectionError(error.code);
+        this.tryNextTimeout = setTimeout(function () {
+          if (!self.playNextStream()) {
+            self.retryAttempts++;
+            if (self.retryAttempts == self.maxRetryAttempts) {
+              self.onConnectionError(error);
+            } else {
+              self.currentStreamIndex = 0;
+              self.restartStream();
+            }
+          }
+        }, this.retryDelay);
       }
     }
   }
@@ -375,5 +443,13 @@ export default class LivestreamingLoader extends ExtensionBase {
         }
       })
     );
+  }
+
+  pauseStream() {
+    console.log("Base Loader: pauseStream called");
+  }
+
+  resumeStream() {
+    console.log("Base Loader: resumeStream called");
   }
 }

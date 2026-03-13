@@ -1,4 +1,12 @@
 declare global {
+  type NovaViewerType = {
+    reload?: () => void;
+    [namespace: string]: any;
+  };
+
+  interface Window {
+    NovaViewer?: NovaViewerType;
+  }
   interface Session {}
 
   interface Event {}

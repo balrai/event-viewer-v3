@@ -1,31 +1,38 @@
 export const useSlideSyncStore = defineStore("slidesync", () => {
   const slideSyncSettings = useState("slidesyncLiveState", () => null as any);
+  const slideShowState = useState("slideshowState", () => null as any);
+  const viewerStore = useViewerStore();
+  const { eventCode } = storeToRefs(viewerStore);
 
-  const slides = ref<Array<{ url: string; time: number }>>([]);
-  const currentSlideUrl = ref<string>("");
+  const slides = ref<Array<{ fileUrl: string; filename: string }>>([]);
+  const currentSlideUrl = computed(() => {
+    console.log("Current slideshow state:", slideShowState.value);
+
+    if (slideShowState.value?.status === "Active") {
+      const currentSlideIndex = slideShowState.value?.slideIndex;
+      return slides.value[currentSlideIndex]?.fileUrl || "";
+    } else {
+      return slides.value[0]?.fileUrl || "";
+    }
+  });
 
   function setSlides(data: any[]) {
-    // Expecting data like: [{ url: '...', time: 0 }, { url: '...', time: 60 }]
-    slides.value = data.sort((a, b) => a.time - b.time);
+    slides.value = data;
   }
 
   function setSlideSyncSettings(value: any) {
     slideSyncSettings.value = value;
+    console.log("Updated slide sync settings:", value);
+    setSlides(value.slides || []);
   }
-  function syncWithTime(currentTime: number) {
-    // Find the last slide that is less than or equal to current time
-    const activeSlide = [...slides.value]
-      .reverse()
-      .find((s) => s.time <= currentTime);
 
-    if (activeSlide) {
-      currentSlideUrl.value = activeSlide.url;
-    }
+  function setSlideShowState(value: any) {
+    slideShowState.value = value;
   }
 
   async function fetchSlideshowSettings(params: any) {
     try {
-      const data = await $fetch("/api/extension/config", {
+      const data = await $fetch(`/${eventCode.value}/extension/config`, {
         method: "GET",
         query: params
       });
@@ -33,7 +40,7 @@ export const useSlideSyncStore = defineStore("slidesync", () => {
       return data;
     } catch (error) {
       console.error("Error fetching streaming state:", error);
-      throw error;
+      return null;
     }
   }
 
@@ -43,7 +50,7 @@ export const useSlideSyncStore = defineStore("slidesync", () => {
     slides,
     setSlides,
     currentSlideUrl,
-    syncWithTime,
-    fetchSlideshowSettings
+    fetchSlideshowSettings,
+    setSlideShowState
   };
 });

@@ -1,27 +1,32 @@
-/* eslint-disable */
+import videojs from "video.js";
+import "video.js/dist/video-js.css";
+import {
+  create,
+  registerIVSTech,
+  registerIVSQualityPlugin,
+  PlayerEventType
+} from "amazon-ivs-player";
 import type Player from "video.js/dist/types/player";
-import { registerIVSTech, registerIVSQualityPlugin } from "amazon-ivs-player";
 import type {
   TextCue,
   TextMetadataCue,
   ErrorType,
-  PlayerEventType,
   PlayerState,
   VideoJSEvents,
   VideoJSIVSTech,
   VideoJSQualityPlugin,
   PlayerError,
-  PlayerConfig
+  PlayerConfig,
+  MediaPlayer
 } from "amazon-ivs-player";
 import LiveStreaming from "../Loader";
 
 interface IVSPlayer extends Player, VideoJSQualityPlugin, VideoJSIVSTech {}
 
-let videojs: any = null;
-
 export default class VideoJsLoader extends LiveStreaming {
   playerId: string;
-  videoJsPlayer: IVSPlayer | null = null;
+  videoJSPlayer: IVSPlayer | null = null;
+  amazonIVSPlayer: MediaPlayer | null = null;
   ksdk = null;
   constructor(options: Record<string, any> = {}) {
     super();
@@ -38,15 +43,15 @@ export default class VideoJsLoader extends LiveStreaming {
     return this.sourceType == "amazonivs";
   }
 
-  get isPlaying() {
-    return this.videoJsPlayer && !this.videoJsPlayer.paused();
+  override get isPlaying(): boolean {
+    if (this.amazonIVSPlayer) {
+      return !this.amazonIVSPlayer.isPaused();
+    }
+    return !!this.videoJSPlayer && !this.videoJSPlayer.paused();
   }
 
   override async setupPlayer(url: string): Promise<boolean> {
-    if (!videojs) {
-      videojs = (await import("video.js")).default;
-      await import("video.js/dist/video-js.css");
-    }
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
     const mimeTypes = {
       ".m3u8": "application/x-mpegURL",
@@ -55,6 +60,8 @@ export default class VideoJsLoader extends LiveStreaming {
     };
 
     if (await super.setupPlayer(url)) {
+      const self = this;
+
       console.log("Initializing Video.JS player");
       const extension = url.substring(url.lastIndexOf("."));
       const detectedMimeType =
@@ -65,19 +72,17 @@ export default class VideoJsLoader extends LiveStreaming {
         controls: true
       });
       if (this.isAmazonIvsEnabled) {
-        registerIVSTech(videojs, {
+        const ivsPlayerConfig: PlayerConfig = {
           wasmBinary: "/ivs/amazon-ivs-wasmworker.min.wasm",
-          wasmWorker: "/ivs/amazon-ivs-wasmworker.min.js",
-          serviceWorker: {
-            url: "/ivs/amazon-ivs-service-worker-loader.js"
-          }
-        } as PlayerConfig);
+          wasmWorker: "/ivs/amazon-ivs-wasmworker.min.js"
+        };
+        registerIVSTech(videojs, ivsPlayerConfig);
         registerIVSQualityPlugin(videojs);
         playerConfig.techOrder = ["AmazonIVS", "html5"];
       }
-      const self = this;
-      this.videoJsPlayer = videojs("videojs", playerConfig, () => {
-        const player = toRaw(self.videoJsPlayer) as IVSPlayer;
+
+      this.videoJSPlayer = videojs(this.playerId, playerConfig, () => {
+        const player = toRaw(self.videoJSPlayer) as IVSPlayer;
         player?.src({
           src: url,
           type: detectedMimeType
@@ -109,8 +114,9 @@ export default class VideoJsLoader extends LiveStreaming {
         }, this.bufferTimeoutWindow * 1000);
       }
     }
-    return !!this.videoJsPlayer;
+    return !!this.videoJSPlayer;
   }
+
   setupVideoJsPlayerEvents(player: IVSPlayer) {
     player.on("error", () => {
       const error = player.error();
@@ -122,23 +128,29 @@ export default class VideoJsLoader extends LiveStreaming {
       });
     });
   }
+
   setupIvsPlayerEvents(player: IVSPlayer) {
-    const playerEvent = player.getIVSEvents().PlayerEventType;
     const ivsPlayer = player.getIVSPlayer();
 
-    // for subtitles and captions (if any)
-    ivsPlayer.addEventListener(playerEvent.TEXT_CUE, (e: TextCue) => {
+    ivsPlayer.addEventListener(PlayerEventType.TEXT_CUE, (e: TextCue) => {
       console.log("IVS Player Text Cue:", e);
     });
 
     ivsPlayer.addEventListener(
-      playerEvent.TEXT_METADATA_CUE,
+      PlayerEventType.TEXT_METADATA_CUE,
       (e: TextMetadataCue) => {
         console.log("IVS Player Text Metadata Cue:", e);
+        try {
+          const cmdData = JSON.parse(e.text);
+          console.log("IVS metadata received:", cmdData);
+          this.dispatchLiveStateCmdData(cmdData);
+        } catch (e) {
+          console.warn("Error parsing IVS metadata:", e);
+        }
       }
     );
 
-    ivsPlayer.addEventListener(playerEvent.ERROR, (e: PlayerError) => {
+    ivsPlayer.addEventListener(PlayerEventType.ERROR, (e: PlayerError) => {
       console.error("IVS Player Error:", e);
       this.onPlayerError({
         code: e.code || 990002,
@@ -149,8 +161,8 @@ export default class VideoJsLoader extends LiveStreaming {
   }
 
   stopStream() {
-    this.videoJsPlayer?.dispose();
-    this.videoJsPlayer = null;
+    this.videoJSPlayer?.dispose();
+    this.videoJSPlayer = null;
     return;
   }
 }

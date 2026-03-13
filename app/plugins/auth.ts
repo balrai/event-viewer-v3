@@ -2,7 +2,7 @@
 import { useAuthStore } from "~/stores/auth";
 
 export default defineNuxtPlugin(async () => {
-  const { user, loggedIn, fetch } = useUserSession();
+  const { user, loggedIn, fetch } = useEventUserSession();
   const authStore = useAuthStore();
 
   // 1. Fetch current session (works on both SSR and Client)

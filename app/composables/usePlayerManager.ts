@@ -1,10 +1,11 @@
 import JWPlayerLoader from "~/viewer/livestreaming/players/JWPlayerLoader";
 import VideoJsLoader from "~/viewer/livestreaming/players/VideoJsLoader";
 import type { StreamSettings } from "~/stores/livestreaming";
+// import IVSRealtimeLoader from "~/viewer/livestreaming/players/IVSRealtimeLoader";
 
 interface PlayerDefinition {
   id: string;
-  loader: new (options: Record<string, any>) => any;
+  loader: (new (options: Record<string, any>) => any) | null;
   default?: boolean;
 }
 
@@ -12,18 +13,22 @@ const players: PlayerDefinition[] = [
   { id: "jwplayer", loader: JWPlayerLoader, default: true },
   { id: "videojs", loader: VideoJsLoader, default: false },
   { id: "ivsplayer", loader: VideoJsLoader, default: false }
-  // { id: 'ivsrealtime', loader: IvsRealtimeLoader },
+  // { id: "ivsrealtime", loader: IVSRealtimeLoader, default: false }
 ];
 
 export function usePlayerManager() {
   const streamingStore = useStreamingStore();
   const liveStateStore = useLiveStateStore();
-
-  let loader: InstanceType<typeof JWPlayerLoader> | null = null;
-  const loaderRef = ref<InstanceType<typeof JWPlayerLoader> | null>(null);
+  let loader: InstanceType<
+    typeof JWPlayerLoader | typeof VideoJsLoader
+  > | null = null;
+  const loaderRef = ref<InstanceType<
+    typeof JWPlayerLoader | typeof VideoJsLoader
+  > | null>(null);
 
   function resolvePlayer(settings: StreamSettings): PlayerDefinition {
     const player =
+      players.find((p) => p.id === settings.sourceType) ??
       players.find((p) => p.id === settings.player) ??
       players.find((p) => p.default) ??
       players[0];
@@ -43,19 +48,19 @@ export function usePlayerManager() {
     settings: StreamSettings,
     quizMarkers: any[] = []
   ) {
-    // Destroy previous player
     destroyPlayer();
 
     const playerDef = resolvePlayer(settings);
 
-    console.log("playerDef:", playerDef);
-    console.log("settings:", settings);
-
-    loader = new playerDef.loader({
-      ...settings,
-      quizMarkers
-    });
-    loaderRef.value = loader;
+    if (playerDef.loader) {
+      loader = new playerDef.loader({
+        ...settings,
+        quizMarkers
+      });
+      loaderRef.value = loader;
+      streamingStore.setPlayerLoader(loader);
+      bindLoaderEvents(loader);
+    }
   }
 
   function bindLoaderEvents(instance: any) {
@@ -64,18 +69,37 @@ export function usePlayerManager() {
     instance.onPlayerError = (data: any) => {
       streamingStore.setError({
         code: data.code,
-        title: data.type || "Player Error",
-        message: data.message || "An error occurred"
+        title: "Loading",
+        message: "Attempting to load stream. Please wait."
       });
       if (originalOnPlayerError) originalOnPlayerError(data);
     };
 
+    const originalHideError = instance._hideError?.bind(instance);
+    instance._hideError = () => {
+      streamingStore.setError(null);
+      if (originalHideError) {
+        originalHideError();
+      }
+    };
+
     // Hook into dispatchLiveStateCmdData to route to liveState store
-    // const originalDispatch = instance.dispatchLiveStateCmdData?.bind(instance);
-    // instance.dispatchLiveStateCmdData = (cmdData: any) => {
-    //   liveStateStore.processCommand(cmdData);
-    //   if (originalDispatch) originalDispatch(cmdData);
-    // };
+    const originalDispatch = instance.dispatchLiveStateCmdData?.bind(instance);
+    instance.dispatchLiveStateCmdData = (cmdData: any) => {
+      console.log("Received live state command:", cmdData);
+      liveStateStore.setLiveStateFromBuffer(cmdData.timestamp);
+      if (originalDispatch) originalDispatch(cmdData);
+    };
+
+    const orginalShowError = instance.showError?.bind(instance);
+    instance.showError = (error: any) => {
+      streamingStore.setError({
+        code: error.code || 0,
+        title: error.title || "Loading",
+        message: error.message || "Attempting to load stream. Please wait."
+      });
+      if (orginalShowError) orginalShowError(error);
+    };
   }
 
   async function startPlayer() {
@@ -108,17 +132,13 @@ export function usePlayerManager() {
   }
 
   function pausePlayer() {
-    if (loader?.jwplayer) {
-      loader.jwplayer.pause();
-      streamingStore.setPlayerState({ playing: false });
-    }
+    loader?.pauseStream();
+    streamingStore.setPlayerState({ playing: false });
   }
 
   function resumePlayer() {
-    if (loader?.jwplayer) {
-      loader.jwplayer.play();
-      streamingStore.setPlayerState({ playing: true });
-    }
+    loader?.resumeStream();
+    streamingStore.setPlayerState({ playing: true });
   }
 
   function destroyPlayer() {

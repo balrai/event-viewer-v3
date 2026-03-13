@@ -2,6 +2,7 @@
 import { onMounted, onBeforeUnmount, computed, type Ref } from "vue";
 import JWPlayer from "~/components/LivestreamingPlayers/JWPlayer.vue";
 import VideoJS from "~/components/LivestreamingPlayers/VideoJSPlayer.vue";
+import IVSRealtimePlayer from "~/components/LivestreamingPlayers/IVSRealtimePlayer.vue";
 
 type LiveState = {
   eventId: string;
@@ -31,21 +32,19 @@ const sessionType = computed(() => session.value?.sessionType ?? "");
 const quizMarkers = computed(() => liveState.value?.Quiz?.markers ?? []);
 
 const params = {
-  eventId: liveState.value.eventId,
-  sessionId: liveState.value.sessionId,
-  instanceId: liveState.value.LiveStreaming.extInstanceId
+  eventId: liveState.value?.eventId as string,
+  sessionId: liveState.value?.sessionId as string,
+  instanceId: liveState.value?.LiveStreaming?.extInstanceId as string
 };
-
 const playerComponents: Record<string, any> = {
   jwplayer: JWPlayer,
   videojs: VideoJS,
-  ivsplayer: VideoJS
+  ivsplayer: VideoJS,
+  ivsrealtime: IVSRealtimePlayer
 };
 
 const currentPlayerComponent = computed(() => {
   const type = streamingStore.playerType;
-  console.log("typee:", type);
-  console.log("type::", playerComponents[type]);
   return playerComponents[type] ?? JWPlayer;
 });
 
@@ -60,8 +59,6 @@ onBeforeUnmount(() => {
 });
 
 watch(streamSettings, async (newSettings) => {
-  console.log("Stream settings updated:", newSettings);
-  console.log("current player component:", currentPlayerComponent.value);
   if (newSettings) {
     await createPlayer(
       { ...newSettings, sessionType: sessionType.value },
@@ -84,15 +81,22 @@ watch(streamSettings, async (newSettings) => {
         <tbody>
           <tr>
             <td>
-              <h3
-                class="livestreaming-error-title"
-                v-html="streamError.title"
-              ></h3>
+              <div class="msg-title">
+                <h3
+                  class="livestreaming-error-title"
+                  v-html="streamError.title"
+                ></h3>
+
+                <div class="dots">
+                  <span>.</span><span>.</span><span>.</span>
+                </div>
+              </div>
+
               <p
                 class="livestreaming-error-message"
                 v-html="streamError.message"
               ></p>
-              <p class="livestreaming-error-code">#{{ streamError.code }}</p>
+              <!-- <p class="livestreaming-error-code">#{{ streamError.code }}</p> -->
             </td>
           </tr>
         </tbody>
@@ -106,5 +110,53 @@ watch(streamSettings, async (newSettings) => {
   position: relative;
   width: 100%;
   height: 100%;
+}
+.livestreaming-error-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: center center no-repeat url("/assets/images/bg.video.jpg");
+  background-size: cover;
+}
+h3 {
+  margin: 0;
+  font-size: 1.5em;
+  color: #6d6d6d;
+}
+.livestreaming-error-message {
+  margin: 0.5em 0 0;
+  font-size: 1em;
+  color: #6d6d6d;
+}
+.msg-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+}
+.dots span {
+  opacity: 0;
+  animation: dot-fade 1.2s infinite;
+  font-size: 2em;
+}
+.dots span:nth-child(2) {
+  animation-delay: 0.4s;
+}
+.dots span:nth-child(3) {
+  animation-delay: 0.8s;
+}
+
+@keyframes dot-fade {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 </style>

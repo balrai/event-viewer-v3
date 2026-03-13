@@ -26,7 +26,7 @@ const { title, message } = defineProps({
   bottom: 0;
   left: 0;
   right: 0;
-  background: bottom center no-repeat url(../assets/bg.jpg);
+  background: bottom center no-repeat url(../assets/images/bg.jpg);
   background-size: cover;
   font-family: Verdana, sans-serif;
 }
@@ -47,7 +47,7 @@ const { title, message } = defineProps({
 #error-container {
   margin: 15vh auto 0;
   max-width: 1200px;
-  background: top left no-repeat url(../assets/bubble.png);
+  background: top left no-repeat url(../assets/images/bubble.png);
   background-size: 400px;
   height: 100%;
   padding-top: 100px;

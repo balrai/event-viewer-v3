@@ -6,6 +6,7 @@ import AnalyticsFacade from "~~/server/lib/nwv2-api-lib/src/facades/analytics-fa
 import { validateEmail } from "~~/server/lib/nwv2-api-lib/src/util/string-lib";
 import { PasscodeOnlyAuth } from "~~/server/lib/nwv2-api-lib/src/event-auth/authentication-handlers-impl/passcode-only-auth";
 import { access } from "fs";
+import { setEventUserSession } from "~~/server/utils/event-session";
 
 export default defineEventHandler(async (event) => {
   try {
@@ -19,14 +20,13 @@ export default defineEventHandler(async (event) => {
       });
     }
     const eventProfile = await eventStorage.getProfile(eventId);
-    console.log(eventProfile);
     if (!eventProfile) {
       return createError({
         statusCode: 404,
         statusMessage: "Event not found"
       });
     }
-    const { authPreset, registration, onSite } = eventProfile;
+    const { authPreset, eventCode, registration, onSite } = eventProfile;
 
     switch (authPreset) {
       case AuthPreset.PUBLIC:
@@ -70,19 +70,23 @@ export default defineEventHandler(async (event) => {
         "Online Check-In"
       );
       console.log("Authresult:", authResult.data);
-      await setUserSession(event, {
-        user: {
-          userId: authResult.data.userId,
-          locale: authResult.data.locale,
-          accessToken: authResult.data.token,
-          accessTokenExp: authResult.data.expireAt
-        },
-        eventId: eventId,
-        secure: {
-          accessToken: authResult.data.token,
-          accessTokenExp: authResult.data.expireAt
-        }
-      });
+      try {
+        await setEventUserSession(event, {
+          user: {
+            userId: authResult.data.userId,
+            accessToken: authResult.data.token,
+            accessTokenExp: authResult.data.expireAt,
+            eventId,
+            eventCode
+          },
+          secure: {
+            accessToken: authResult.data.token,
+            accessTokenExp: authResult.data.expireAt
+          }
+        });
+      } catch (e) {
+        console.log("Error setting user session:", e);
+      }
       return authResult.data;
     }
   } catch (e) {
