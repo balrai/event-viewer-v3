@@ -83,7 +83,6 @@ export function usePlayerManager() {
       }
     };
 
-    // Hook into dispatchLiveStateCmdData to route to liveState store
     const originalDispatch = instance.dispatchLiveStateCmdData?.bind(instance);
     instance.dispatchLiveStateCmdData = (cmdData: any) => {
       console.log("Received live state command:", cmdData);
